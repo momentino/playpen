@@ -79,7 +79,7 @@ instances using these models can be active at the same time without issues.
 ## clembench backends details
 While the clembench backends can simply be used as shown above, certain implementation details may be helpful.
 ### Supported Models & Model Registry
-A model is supported by clembench if it has an entry in the [model registry](../backends/model_registry.json). Model 
+A model is supported by clembench if it has an entry in the [model registry](../playpen/backends/model_registry.json). Model 
 entries contain all necessary information to load the model and use it to generate chat replies. The model registry 
 supplied on the clembench repository covers tested and working models. See the 
 [model registry documentation](model_backend_registry_readme.md) for more information.
@@ -104,7 +104,7 @@ Passing a `dict` allows to select a specific model version. This is useful for m
 entries: For example "openchat-3.5", which has a remote 'openai-compatible' entry and an entry for running it on the 
 local HuggingFace backend. Using a `dict` also allows to instantiate a model with non-standard sampling parameters 
 directly.  
-See the [backends code](../backends/__init__.py) for the `ModelSpec` class and intermediate uses of it.
+See the [backends code](../playpen/backends/__init__.py) for the `ModelSpec` class and intermediate uses of it.
 ### backends.Model class sampling parameters
 `backends.Model` and its subclasses can store sampling parameters, also called generation arguments. Unless these 
 have been passed by `dict` or `ModelSpec` at initialization, they have to be set using the `set_gen_args()` or 

@@ -28,7 +28,7 @@ And the same happens to the `GameMaster` which now receives the models as the `p
 class Taboo(DialogueGameMaster):
 
 -    def __init__(self, experiment: Dict, player_backends: List[str]):
-+    def __init__(self, experiment: Dict, player_backends: List[Model]):
++    def __init__(self, experiment: Dict, player_backends: List[Agent]):
 ```
 
 Why is this a good thing? 

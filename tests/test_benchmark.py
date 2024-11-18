@@ -1,6 +1,6 @@
 import unittest
 
-from clemgame import benchmark, string_utils
+from playpen.playpengame import benchmark, string_utils
 from backends import openai_api, alephalpha_api
 
 

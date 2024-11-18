@@ -4,7 +4,7 @@ of models in the GGUF format, supporting pre-quantized model versions and merged
 hardware backend and operating system, and models may need to be loaded with specific arguments depending on the setup.  
 ## Content
 [Setup](#setup)  
-[Model loading](#model-loading)
+[Agent loading](#model-loading)
 ## Setup
 The clembench llama.cpp backend relies on the llama-cpp-python library, which wraps C++ llama.cpp. To allow the usage of 
 specific hardware, specially GPUs, the installation must include a fitting version of llama.cpp. This may entail 
