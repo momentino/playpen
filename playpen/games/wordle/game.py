@@ -1,5 +1,6 @@
 from typing import Dict, List
 
+from playpen.agents import Agent
 from playpen.playpengame import get_logger
 from playpen.games.wordle.utils.guesser import Guesser
 from playpen.games.wordle.utils.critic import Critic
