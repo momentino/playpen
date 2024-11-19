@@ -2,7 +2,7 @@ from typing import List, Dict
 import numpy as np
 
 from playpen.agents import Agent
-from playpen.playpengame.playpengame import GameMaster, GameBenchmark, GameScorer
+from playpen.playpengame.playpengame import GameMaster, GameBenchmark, GameScorer, DialogueGameMaster
 from playpen.playpengame import get_logger
 import playpen.playpengame.metrics as metrics
 from playpen.games.wordle.game import WordleGame
@@ -13,7 +13,7 @@ logger = get_logger(__name__)
 GAME_NAME = "wordle"
 
 
-class WordleGameMaster(GameMaster):
+class WordleGameMaster(DialogueGameMaster):
     def __init__(self, game_name: str, experiment: Dict, player_agents: List[Agent]):
         super().__init__(game_name, experiment, player_agents)
         self.config = experiment
