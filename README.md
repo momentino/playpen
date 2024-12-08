@@ -1,5 +1,8 @@
-### Updates
-(February 2024): We have updated the framework code. If you have written games using the initial release version, see [this guide](docs/howto_update_to_v1.md) on how to update your game.
+# Playpen
+This is a modified version of clembench where we deal with agents instead of models. 
+There are some changes compared to Clembench but (for now) the original documentation is mostly valid.
+
+
 
 # clembench: A Framework for the Systematic Evaluation of Chat-Optimized Language Models as Conversational Agents
 
@@ -9,10 +12,6 @@ The framework is a systematic way of probing for the situated language understan
 This repository contains the code for setting up the framework and implements a number of games that are further discussed in 
 
 > Chalamalasetti, K., Götze, J., Hakimov, S., Madureira, B., Sadler, P., & Schlangen, D. (2023). clembench: Using Game Play to Evaluate Chat-Optimized Language Models as Conversational Agents (arXiv:2305.13455). arXiv. https://doi.org/10.48550/arXiv.2305.13455
-
-### Evaluation Results
-
-On the [main project website](https://clembench.github.io) , under [leaderboard](https://clembench.github.io/leaderboard.html).
 
 ### Game details
 
@@ -25,9 +24,6 @@ On the [main project website](https://clembench.github.io) , under [leaderboard]
 ## Using the benchmark
 
 This repository is tested on `Python 3.8+`
-
-We welcome you to contribute to or extend the benchmark with your own games and models. 
-Please simply open a pull request. You can find more information on how to use the benchmark in the links below.
 
 - [How to run the benchmark and evaluation locally](docs/howto_run_benchmark.md)
 - [How to run the benchmark, update leaderboard workflow](docs/howto_benchmark_workflow.md)
