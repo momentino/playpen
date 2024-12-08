@@ -2,7 +2,7 @@ import random
 from typing import Dict, List
 
 from playpen.playpengame.playpengame import Player
-from playpen.agents import Agent
+from playpen.agents.base_agent import Agent
 
 
 

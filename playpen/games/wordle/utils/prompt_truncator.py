@@ -1,7 +1,7 @@
 import tiktoken
 import openai
 
-import backends
+from playpen import backends
 
 NAME = "openai"
 

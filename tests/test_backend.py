@@ -1,7 +1,7 @@
 import unittest
 
-from backends import get_model_for, load_model_registry
-from backends.utils import ensure_alternating_roles
+from playpen.backends import get_model_for, load_model_registry
+from playpen.backends import ensure_alternating_roles
 
 
 class UtilsTestCase(unittest.TestCase):

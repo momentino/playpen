@@ -3,6 +3,7 @@ import os
 from string import Template
 from typing import Dict
 from playpen.playpengame import file_utils
+from playpen.backends import project_root
 
 import html
 
@@ -100,7 +101,7 @@ def _get_class_name(event):
         return "gm-gm"
 
 
-def build_transcript(interactions: Dict, experiment_config: Dict, game_instance: Dict, dialogue_pair: str, project_root: str):
+def build_transcript(interactions: Dict, experiment_config: Dict, game_instance: Dict, dialogue_pair: str):
     """Create an html with the interaction transcript."""
     transcript = HTML_HEADER.format(CSS_STRING)
     title = f"Interaction Transcript for {experiment_config['name']}, " \

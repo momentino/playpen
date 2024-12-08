@@ -1,70 +1,31 @@
+import os
 import argparse
-import json
-from typing import List
-
-from playpen.backends import ModelSpec
+from pathlib import Path
+from playpen import playpengame
 from playpen.playpengame import benchmark
+from playpen.agents import create_agents
 
-"""
-    Use good old argparse to run the commands.
-    
-    To list available games: 
-    $> python3 scripts/cli.py ls
-    
-    To run a specific game with a single player:
-    $> python3 scripts/cli.py run -g privateshared -m mock
-    
-    To run a specific game with a two players:
-    $> python3 scripts/cli.py run -g taboo -m mock mock
-    
-    If the game supports model expansion (using the single specified model for all players):
-    $> python3 scripts/cli.py run -g taboo -m mock
-    
-    To score all games:
-    $> python3 scripts/cli.py score
-    
-    To score a specific game:
-    $> python3 scripts/cli.py score -g privateshared
-    
-    To score all games:
-    $> python3 scripts/cli.py transcribe
-    
-    To score a specific game:
-    $> python3 scripts/cli.py transcribe -g privateshared
-"""
-
-
-def read_model_specs(model_strings: List[str]):
-    model_specs = []
-    for model_string in model_strings:
-        try:
-            model_string = model_string.replace("'", "\"")  # make this a proper json
-            model_dict = json.loads(model_string)
-            model_spec = ModelSpec.from_dict(model_dict)
-        except Exception as e:  # likely not a json
-            model_spec = ModelSpec.from_name(model_string)
-        model_specs.append(model_spec)
-    return model_specs
-
-
-def read_gen_args(args: argparse.Namespace):
-    return dict(temperature=args.temperature, max_tokens=args.max_tokens)
-
+stdout_logger = playpengame.get_logger("benchmark.run")
 
 def main(args: argparse.Namespace):
     if args.command_name == "ls":
         benchmark.list_games()
-    if args.command_name == "run":
-        benchmark.run(args.game,
-                      model_specs=read_model_specs(args.models),
-                      gen_args=read_gen_args(args),
-                      experiment_name=args.experiment_name,
-                      instances_name=args.instances_name,
-                      results_dir=args.results_dir)
-    if args.command_name == "score":
-        benchmark.score(args.game, experiment_name=args.experiment_name, results_dir=args.results_dir)
-    if args.command_name == "transcribe":
-        benchmark.transcripts(args.game, experiment_name=args.experiment_name, results_dir=args.results_dir)
+    else:
+        project_root = Path(__file__).resolve().parent.parent
+        results_dir = args.results_dir if os.path.isabs(args.results_dir) else project_root / args.results_dir
+        if args.command_name == "run":
+            agents = create_agents(agent_args_list=args.agent_args,
+                                   game=args.game,
+                                   agents_root=args.agents_dir)
+            benchmark.run(args.game,
+                          agents=agents,
+                          experiment_name=args.experiment_name,
+                          instances_name=args.instances_name,
+                          results_dir=results_dir)
+        if args.command_name == "score":
+            benchmark.score(args.game, experiment_name=args.experiment_name, results_dir=results_dir)
+        if args.command_name == "transcribe":
+            benchmark.transcripts(game_name=args.game, experiment_name=args.experiment_name, results_dir=results_dir)
 
 
 if __name__ == "__main__":
@@ -77,18 +38,20 @@ if __name__ == "__main__":
                             help="""Assumes model names supported by the implemented backends.
 
       To run a specific game with a single player:
-      $> python3 scripts/cli.py run -g privateshared -m mock
+      $> python3 scripts/cli.py run -g taboo -m model_name
 
-      To run a specific game with a two players:
-      $> python3 scripts/cli.py run -g taboo -m mock mock
+      To run a specific game with n players:
+      $> python3 scripts/cli.py run -g taboo -m model_name model_name2 model_name3 ...
 
       If the game supports model expansion (using the single specified model for all players):
-      $> python3 scripts/cli.py run -g taboo -m mock
+      $> python3 scripts/cli.py run -g taboo -m model_name
 
       When this option is not given, then the dialogue partners configured in the experiment are used. 
       Default: None.""")
     run_parser.add_argument("-e", "--experiment_name", type=str,
                             help="Optional argument to only run a specific experiment")
+    run_parser.add_argument("-a", "--agent_args", nargs='+', type=str, default=["agent_class=ZeroShotLLMAgent"],
+                            help="Arguments to initialize the agent class")
     run_parser.add_argument("-g", "--game", type=str,
                             required=True, help="A specific game name (see ls).")
     run_parser.add_argument("-t", "--temperature", type=float, default=0.0,
@@ -103,6 +66,10 @@ if __name__ == "__main__":
                             help="A relative or absolute path to the results root directory. "
                                  "For example '-r results/v1.5/de‘ or '-r /absolute/path/for/results'. "
                                  "When not specified, then the results will be located in './results'")
+    run_parser.add_argument("-s", "--agents_dir", type=str, default="playpen/agents",
+                            help="A relative or absolute path to the directory containing the agent classes. "
+                                 "For example '-a playpen/agents‘ or '-r /absolute/path/for/agents'. "
+                                 "When not specified, then the results will be located in './playpen/agents'")
 
     score_parser = sub_parsers.add_parser("score")
     score_parser.add_argument("-e", "--experiment_name", type=str,

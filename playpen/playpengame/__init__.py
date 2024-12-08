@@ -36,7 +36,6 @@ def configure_logging(project_root):
 def get_logger(name):
     return logging.getLogger(name)
 
-
 playpen_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(playpen_root)
 # Load games dynamically from "games" sibling directory

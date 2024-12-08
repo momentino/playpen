@@ -11,7 +11,7 @@ import playpen.playpengame.metrics as ms
 from playpen.playpengame.playpengame import GameMaster, GameBenchmark, DialogueGameMaster, GameScorer
 from playpen.playpengame import get_logger
 from playpen.playpengame.playpengame import Player
-from playpen.agents import Agent
+from playpen.agents.base_agent import Agent
 
 #from games.cloudgame.players import Speaker
 from playpen.playpengame.metrics import METRIC_ABORTED, METRIC_SUCCESS, METRIC_LOSE, BENCH_SCORE, METRIC_REQUEST_COUNT, METRIC_REQUEST_COUNT_PARSED,  METRIC_REQUEST_COUNT_VIOLATED

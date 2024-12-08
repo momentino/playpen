@@ -4,7 +4,7 @@ import os
 import logging
 from time import sleep
 
-from playpen.agents import Agent
+from playpen.agents.base_agent import Agent
 from playpen.playpengame.playpengame import GameMaster, GameBenchmark
 from playpen.playpengame.slurkbot import APIChatBot
 from playpen.playpengame import get_logger

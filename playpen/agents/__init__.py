@@ -1,43 +1,21 @@
-import abc
-from typing import Tuple, Any
+from typing import List
+from playpen import playpengame
+from playpen.playpengame.playpengame import num_players
+from playpen.agents.base_agent import Agent
+from playpen.utils.run_utils import init_agent_from_args
+stdout_logger = playpengame.get_logger("benchmark.run")
 
-class Agent(abc.ABC):
-    def __init__(self, name):
-        self.name = name
-        self.observations = []
-
-    @abc.abstractmethod
-    def act(self) -> Tuple[Any, Any, str]:
-        pass
-
-    @abc.abstractmethod
-    def observe(self, observation, reward, termination, truncation, info):
-        pass
-
-    @abc.abstractmethod
-    def shutdown(self):
-        pass
-
-    def reset(self):
-        self.observations = []
-
-
-    def get_observations(self):
-        return self.observations
-
-    def get_last_observation(self):
-        return self.observations[-1]
-
-    def get_name(self) -> str:
-        return self.name
-
-    def __repr__(self):
-        return str(self)
-
-    def __str__(self):
-        return self.get_name()
-
-    def __eq__(self, other: "Agent"):
-        if not isinstance(other, Agent):
-            return False
-        return self.get_name() == other.get_name()
+def create_agents(agent_args_list: List[str], agents_root: str, game:str) -> List[Agent]:
+    min_num_agents, max_num_agents = num_players(game)
+    agents = [init_agent_from_args(agent_args, agents_root) for agent_args in agent_args_list]
+    # TODO: when we have the same model playing multiple agents, we could have one single instance in the memory rather than two, and have separate histories
+    if len(agents) > max_num_agents:
+        message = f"Too many agents for this game. The maximum number of player agents for this game is {max_num_agents}"
+        stdout_logger.error(message)
+        raise ValueError(message)
+    elif len(agents) < min_num_agents:
+        message = f"The number of agents was insufficient for playing the game. Creating {min_num_agents - len(agents)} agents with the last model specified in the arguments."
+        stdout_logger.warning(message)
+        agent = agents[-1]
+        agents.extend([agent for _ in range(min_num_agents - len(agents))])
+    return agents

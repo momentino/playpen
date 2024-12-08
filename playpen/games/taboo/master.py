@@ -7,7 +7,7 @@ from playpen.playpengame.metrics import METRIC_ABORTED, METRIC_SUCCESS, METRIC_L
     METRIC_REQUEST_COUNT_VIOLATED, METRIC_REQUEST_COUNT_PARSED, METRIC_REQUEST_SUCCESS, BENCH_SCORE
 from playpen.playpengame import get_logger
 from playpen.playpengame import file_utils, string_utils
-from playpen.agents import Agent
+from playpen.agents.base_agent import Agent
 
 import nltk
 from nltk.corpus import stopwords

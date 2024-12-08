@@ -1,6 +1,6 @@
 from typing import Dict, List
 
-from playpen.agents import Agent
+from playpen.agents.base_agent import Agent
 from playpen.playpengame.playpengame import GameBenchmark, GameMaster, GameScorer
 from playpen.games.wordle.master import WordleGameMaster, WordleGameScorer
 

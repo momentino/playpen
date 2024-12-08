@@ -1,6 +1,6 @@
 from typing import List, Dict, Tuple
 
-from backends import CustomResponseModel, Model, ModelSpec
+from playpen.backends import CustomResponseModel, ModelSpec
 from playpen.playpengame import Player
 from playpen.playpengame import get_logger
 

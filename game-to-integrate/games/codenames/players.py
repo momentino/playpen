@@ -1,5 +1,6 @@
 from typing import Dict, List
-import re, random, string, nltk, backends
+import re, random, nltk
+from playpen import backends
 
 from playpen.playpengame import Player
 from .constants import *

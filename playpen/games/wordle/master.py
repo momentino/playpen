@@ -1,7 +1,7 @@
 from typing import List, Dict
 import numpy as np
 
-from playpen.agents import Agent
+from playpen.agents.base_agent import Agent
 from playpen.playpengame.playpengame import GameMaster, GameBenchmark, GameScorer, DialogueGameMaster
 from playpen.playpengame import get_logger
 import playpen.playpengame.metrics as metrics

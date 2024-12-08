@@ -13,8 +13,10 @@ content. The method returns the full prompt, full output and generated text as a
 [the model addition howto](howto_add_models.md) for more information.
 ## Basic example
 Load a supported model and generate a reply:
+
 ```python
-import backends
+
+from playpen import backends
 
 # load the model registry:
 backends.load_model_registry()
@@ -41,8 +43,10 @@ print(response_text)
 ```
 ## Multiple models example
 Loop over a list of supported model names and generate a reply to the same messages with each:
+
 ```python
-import backends
+
+from playpen import backends
 
 # load the model registry:
 backends.load_model_registry()
@@ -62,12 +66,12 @@ for model_name in model_names:
     # set required generation arguments/sampling parameters:
     model.set_gen_arg('temperature', 0.0)  # temperature 0.0 for deterministic sampling
     model.set_gen_arg('max_tokens', 25)  # maximum number of generated tokens
-    
+
     # generate a response:
     prompt, response, response_text = model.generate_response(messages)
     print(f"{model_name} reply:")
     print(response_text)
-    
+
     # remove Model instance to free up memory:
     del model
 ```

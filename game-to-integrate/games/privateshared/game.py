@@ -6,7 +6,7 @@ import copy
 import random
 from typing import List, Dict, Any, Tuple
 
-from backends import Model, CustomResponseModel
+from playpen.backends import Model, CustomResponseModel
 from playpen.playpengame import Player
 from playpen.playpengame import load_json
 from games.privateshared.constants import REQUESTS_PATH, GAME_NAME

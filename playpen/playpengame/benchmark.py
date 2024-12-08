@@ -1,17 +1,17 @@
 """ Main entry point """
-from typing import List, Dict
-
+import playpen.backends as backends
+from typing import List
 from playpen import playpengame
-
 from datetime import datetime
-
 from playpen.playpengame.playpengame import load_benchmarks, load_benchmark
-from playpen.agents import Agent
+from playpen.agents.base_agent import Agent
 
 logger = playpengame.get_logger(__name__)
 stdout_logger = playpengame.get_logger("benchmark.run")
 
-
+# look for custom user-defined models before loading the base registry
+backends.load_custom_model_registry()
+backends.load_model_registry()
 
 
 def list_games():
@@ -68,7 +68,7 @@ def score(game_name: str, experiment_name: str = None, results_dir: str = None):
             logger.error(e, exc_info=True)
 
 
-def transcripts(project_root:str, game_name: str, experiment_name: str = None, results_dir: str = None):
+def transcripts(game_name: str, experiment_name: str = None, results_dir: str = None):
     logger.info("Building benchmark transcripts for: %s", game_name)
     if experiment_name:
         logger.info("Only transcribe experiment: %s", experiment_name)
@@ -83,7 +83,7 @@ def transcripts(project_root:str, game_name: str, experiment_name: str = None, r
                 benchmark.filter_experiment.append(experiment_name)
             stdout_logger.info(f"Transcribe game {idx + 1} of {total_games}: {benchmark.name}")
             time_start = datetime.now()
-            benchmark.build_transcripts(project_root, results_dir)
+            benchmark.build_transcripts(results_dir)
             time_end = datetime.now()
             logger.info(f"Building transcripts {benchmark.name} took {str(time_end - time_start)}")
         except Exception as e:

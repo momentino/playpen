@@ -1,6 +1,6 @@
 import unittest
 
-from backends import get_model_for, load_model_registry
+from playpen.backends import get_model_for, load_model_registry
 
 
 class TabooTestCase(unittest.TestCase):

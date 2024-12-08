@@ -1,6 +1,6 @@
 from typing import Dict, List
 
-from backends import Model
+from playpen.backends import Model
 from playpen.playpengame import Player
 
 

@@ -2,7 +2,7 @@ from typing import List, Dict
 
 import numpy as np
 
-from playpen.agents import Agent
+from playpen.agents.base_agent import Agent
 from playpen.playpengame import file_utils
 from playpen.playpengame import metrics
 from playpen.playpengame.playpengame import DialogueGameMaster, GameBenchmark, GameScorer

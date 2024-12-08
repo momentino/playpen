@@ -7,7 +7,7 @@ from typing import List, Dict, Tuple, Any
 
 from tqdm import tqdm
 
-from playpen.agents import Agent
+from playpen.agents.base_agent import Agent
 from playpen import playpengame
 from playpen.playpengame import file_utils
 from playpen.playpengame import transcript_utils
@@ -606,7 +606,7 @@ class GameBenchmark(GameResourceLocator):
             instances_name = "instances"
         self.instances = self.load_json(f"in/{instances_name}")
 
-    def build_transcripts(self, project_root: str, results_dir: str = None):
+    def build_transcripts(self, results_dir: str = None):
         results_root = file_utils.results_root(results_dir)
         dialogue_partners = [file for file in os.listdir(results_root)
                              if os.path.isdir(os.path.join(results_root, file))]
@@ -641,7 +641,7 @@ class GameBenchmark(GameResourceLocator):
                                                                    results_root, dialogue_pair)
 
                         transcript = transcript_utils.build_transcript(game_interactions, experiment_config,
-                                                                       game_instance, dialogue_pair, project_root)
+                                                                       game_instance, dialogue_pair)
                         self.store_results_file(transcript, "transcript.html",
                                                 dialogue_pair,
                                                 sub_dir=rel_episode_path,

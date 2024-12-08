@@ -1,6 +1,6 @@
 from typing import List, Dict
 
-from playpen.agents import Agent
+from playpen.agents.base_agent import Agent
 from playpen.playpengame.playpengame import Player
 
 

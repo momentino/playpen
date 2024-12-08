@@ -1,7 +1,8 @@
 import unittest
 
 from playpen.playpengame import benchmark, string_utils
-from backends import openai_api, alephalpha_api
+from playpen.backends import openai_api
+from playpen.backends import alephalpha_api
 
 
 class BenchmarkTestCase(unittest.TestCase):
