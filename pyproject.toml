@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "playpen"
+version = "0.1.0"
+description = "Playpen"
+authors = [{name = "ClembenchTeam + Filippo Momentè", email = "filippo.momente@studenti.unitn.it"}]
+
+[tool.setuptools]
+packages = ["clemgame", "backends"]
