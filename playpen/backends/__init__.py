@@ -44,6 +44,18 @@ def load_credentials(backend, file_name="key.json") -> Dict:
     assert "api_key" in creds[backend], f"No 'api_key' in {file_name}. See README."
     return creds
 
+def read_model_specs(model_strings: List[str]):
+    model_specs = []
+    for model_string in model_strings:
+        try:
+            model_string = model_string.replace("'", "\"")  # make this a proper json
+            model_dict = json.loads(model_string)
+            model_spec = ModelSpec.from_dict(model_dict)
+        except Exception as e:  # likely not a json
+            model_spec = ModelSpec.from_name(model_string)
+        model_specs.append(model_spec)
+    return model_specs
+
 
 @dataclass(frozen=True)
 class ModelSpec(SimpleNamespace):
