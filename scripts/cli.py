@@ -2,8 +2,8 @@ import argparse
 import json
 from typing import List
 
-from backends import ModelSpec
-from clemgame import benchmark
+from playpen.backends import ModelSpec
+from playpen.clemgame import benchmark
 
 """
     Use good old argparse to run the commands.

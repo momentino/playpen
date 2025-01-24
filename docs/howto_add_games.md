@@ -314,16 +314,17 @@ A player generates this response either as a `_api_response()`
 For example, the taboo game guesser agent can be implemented as a player that can be a cLLM with a static response that always guesses the word "pear":
 
 ```python
-from clemgame.clemgame import Player
+from playpen.clemgame import Player
+
 
 class WordGuesser(Player):
 
-   def __init__(self, model_name):
-      super().__init__(model_name)
+    def __init__(self, model_name):
+        super().__init__(model_name)
 
-   def _custom_response(self, messages, turn_idx):
-      # mock response
-      return f'Pear'
+    def _custom_response(self, messages, turn_idx):
+        # mock response
+        return f'Pear'
 ```
 
 ### GameInstanceGenerator class
@@ -338,13 +339,15 @@ For example, in the taboo game, we
 - want to test 3 LLMs (taboo is played between 2 cLLMs)
 - we fix the maximum number of turns to `N_GUESSES`
 - we generate a fixed number of instances, `N_INSTANCES`
+
 ```python
-from clemgame.clemgame import GameInstanceGenerator
+from playpen.clemgame import GameInstanceGenerator
 
 N_INSTANCES = 20  # how many different target words; zero means "all"
 N_GUESSES = 3  # how many tries the guesser will have
 N_REATED_WORDS = 3
 LANGUAGE = "en"
+
 
 class TabooGameInstanceGenerator(GameInstanceGenerator):
 
@@ -359,7 +362,7 @@ class TabooGameInstanceGenerator(GameInstanceGenerator):
             fp = f"resources/target_words/{LANGUAGE}/{difficulty}_freq_100"
             target_words = self.load_file(file_name=fp, file_ending=".txt").split('\n')
             if N_INSTANCES > 0:
-                assert len(target_words) >= N_INSTANCES, \
+                assert len(target_words) >= N_INSTANCES,
                     f'Fewer words available ({len(target_words)}) than requested ({N_INSTANCES}).'
                 target_words = random.sample(target_words, k=N_INSTANCES)
 

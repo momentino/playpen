@@ -11,7 +11,7 @@ import pandas as pd
 import seaborn as sns
 from tqdm import tqdm
 
-import clemgame.metrics as clemmetrics
+import playpen.clemgame.metrics as clemmetrics
 
 EVAL_DIR = 'results_eval'
 RESULTS_DIR = './results'

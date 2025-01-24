@@ -202,7 +202,7 @@ Default `GameScorer` iterates over the `turns` list in an episode's `interaction
 recorded actions in each turn.  
 This is implemented in the `score_turns` method, which receives the entire episode interactions dict as 
 `episode_interactions` argument. See the `GameScorer` base class in `clemgame.py` 
-[here](../clemgame/clemgame.py) for a base scoring procedure.
+[here](../playpen/clemgame/clemgame.py) for a base scoring procedure.
 
 `GameScorer` has the following logging methods:
 - `log_turn_score`: Should be called in the scoring method to log turn-level scores. It takes a score name and a value 
@@ -215,7 +215,7 @@ Games can have multiple turn-level scores and episode-level scores, but only one
 the core quality of a played episode. Episode scores are usually measures of game success.
 
 You can log as many scores as you wish. The minimal requirements is to log the default episode-level scores defined in 
-`clemgame/metrics.py` [here](../clemgame/metrics.py) (see the [paper](https://doi.org/10.48550/arXiv.2305.13455)'s 
+`clemgame/metrics.py` [here](../playpen/clemgame/metrics.py) (see the [paper](https://doi.org/10.48550/arXiv.2305.13455)'s 
 appendix for details). For custom, game-specific scores see [Custom Scores](#custom-scores).
 
 **Important**: If the game was aborted, all default episode-level scores should be `np.nan` and turn-level scores can be 

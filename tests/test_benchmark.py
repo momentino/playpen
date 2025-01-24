@@ -1,7 +1,7 @@
 import unittest
 
-from clemgame import benchmark, string_utils
-from backends import openai_api, alephalpha_api
+from playpen.clemgame import string_utils, benchmark
+from playpen.backends import openai_api, alephalpha_api
 
 
 class BenchmarkTestCase(unittest.TestCase):

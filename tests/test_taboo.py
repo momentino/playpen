@@ -1,6 +1,6 @@
 import unittest
 
-from backends import CustomResponseModel
+from playpen.backends import CustomResponseModel
 from games.taboo.master import check_clue, Taboo
 
 

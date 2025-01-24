@@ -7,11 +7,11 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
-from matplotlib.colors import ListedColormap, to_rgba
+from matplotlib.colors import ListedColormap
 from matplotlib.patches import Polygon
 
 import evaluation.evalutils as utils
-import clemgame.metrics as clemmetrics
+import playpen.clemgame.metrics as clemmetrics
 
 ABORTED = clemmetrics.METRIC_ABORTED
 

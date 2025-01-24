@@ -1,6 +1,6 @@
 import unittest
 
-from backends import ModelSpec
+from playpen.backends import ModelSpec
 
 
 class ModelSpecTestCase(unittest.TestCase):

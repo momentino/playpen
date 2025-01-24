@@ -33,7 +33,7 @@ here: https://docs.aleph-alpha.com/docs/introduction/luminous/
 
 ### Supported models
 
-Supported models are listed in the [model registry](../backends/model_registry.json).  
+Supported models are listed in the [model registry](../playpen/backends/model_registry.json).  
 To use a supported model as shown below, use the model registry entry's `model_name`.  
 See the [model registry documentation](model_backend_registry_readme.md) for more information.
 

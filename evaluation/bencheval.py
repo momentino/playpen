@@ -11,7 +11,7 @@ from pathlib import Path
 import pandas as pd
 
 import evaluation.evalutils as utils
-import clemgame.metrics as clemmetrics
+import playpen.clemgame.metrics as clemmetrics
 
 TABLE_NAME = 'results'
 
