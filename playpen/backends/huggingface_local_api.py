@@ -255,7 +255,7 @@ def _check_context_limit(context_size, prompt_tokens, max_new_tokens: int = 100)
             Total context token limit
     """
     prompt_size = len(prompt_tokens)
-    tokens_used = prompt_size + max_new_tokens  # context includes tokens to be generated
+    tokens_used = prompt_size + int(max_new_tokens)  # context includes tokens to be generated
     tokens_left = context_size - tokens_used
     fits = tokens_used <= context_size
     return fits, tokens_used, tokens_left, context_size
