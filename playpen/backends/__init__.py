@@ -288,7 +288,7 @@ def _register_backend(backend_name: str):
     if not os.path.isfile(backend_path):
         raise FileNotFoundError(f"The file '{backend_path}' does not exist. "
                                 f"Create such a backend file or check the backend_name '{backend_name}'.")
-    module = importlib.import_module(f"backends.{backend_module}")
+    module = importlib.import_module(f"playpen.backends.{backend_module}")
     backend_subclasses = inspect.getmembers(module, predicate=is_backend)
     if len(backend_subclasses) == 0:
         raise LookupError(f"There is no Backend defined in {backend_module}. "
