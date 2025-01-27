@@ -203,7 +203,7 @@ class HuggingfaceLocalModel(backends.Model):
 
         # greedy decoding:
         do_sample: bool = False
-        if self.get_temperature() > 0.0:
+        if float(self.get_temperature()) > 0.0:
             do_sample = True
 
         if do_sample:
