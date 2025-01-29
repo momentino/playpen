@@ -1376,7 +1376,7 @@
       "parameters": "13B"
   },
   {
-      "model_name": "OLMo-2-1124-7B",
+      "model_name": "OLMo-2-1124-7B-Instruct",
       "backend": "huggingface_local",
       "huggingface_id": "allenai/OLMo-2-1124-7B",
       "premade_chat_template": true,
@@ -1386,7 +1386,7 @@
       "parameters": "7B"
   },
   {
-      "model_name": "OLMo-2-1124-13B",
+      "model_name": "OLMo-2-1124-13B-Instruct",
       "backend": "huggingface_local",
       "huggingface_id": "allenai/OLMo-2-1124-13B",
       "premade_chat_template": true,
