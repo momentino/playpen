@@ -2,6 +2,7 @@
 from typing import List, Dict
 
 from playpen import clemgame, backends
+from playpen.agents.base_agent import Agent
 
 from datetime import datetime
 
@@ -25,23 +26,23 @@ def list_games():
         stdout_logger.info(" Game: %s -> %s", game.name, game.get_description())
 
 
-def run(game_name: str, model_specs: List[backends.ModelSpec], gen_args: Dict,
+def run(game_name: str, agents: List[Agent],
         experiment_name: str = None, instances_name: str = None, results_dir: str = None):
     if experiment_name:
         logger.info("Only running experiment: %s", experiment_name)
     try:
-        player_models = []
+        """player_models = []
         for model_spec in model_specs:
             model = backends.get_model_for(model_spec)
             model.set_gen_args(**gen_args)  # todo make this somehow available in generate method?
-            player_models.append(model)
+            player_models.append(model)"""
         benchmark = load_benchmark(game_name, instances_name=instances_name)
         logger.info("Running benchmark for '%s' (models=%s)", game_name,
-                    player_models if player_models is not None else "see experiment configs")
+                    agents if agents is not None else "see experiment configs")
         if experiment_name:
             benchmark.filter_experiment.append(experiment_name)
         time_start = datetime.now()
-        benchmark.run(player_models=player_models, results_dir=results_dir)
+        benchmark.run(agents=agents, results_dir=results_dir)
         time_end = datetime.now()
         logger.info(f"Run {benchmark.name} took {str(time_end - time_start)}")
     except Exception as e:
