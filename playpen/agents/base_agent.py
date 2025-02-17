@@ -2,8 +2,7 @@ import abc
 from typing import Tuple, Any
 
 class Agent(abc.ABC):
-    def __init__(self, name):
-        self.name = name
+    def __init__(self):
         self.observations = []
 
     @abc.abstractmethod

@@ -6,6 +6,7 @@ from playpen.agents.base_agent import Agent
 
 from datetime import datetime
 
+from playpen.agents.clembench_agent import ClembenchAgent
 from playpen.clemgame.clemgame import load_benchmarks, load_benchmark
 
 logger = clemgame.get_logger(__name__)
@@ -26,7 +27,7 @@ def list_games():
         stdout_logger.info(" Game: %s -> %s", game.name, game.get_description())
 
 
-def run(game_name: str, agents: List[Agent],
+def run_playpen(game_name: str, agents: List[Agent],
         experiment_name: str = None, instances_name: str = None, results_dir: str = None):
     if experiment_name:
         logger.info("Only running experiment: %s", experiment_name)
@@ -43,6 +44,30 @@ def run(game_name: str, agents: List[Agent],
             benchmark.filter_experiment.append(experiment_name)
         time_start = datetime.now()
         benchmark.run(agents=agents, results_dir=results_dir)
+        time_end = datetime.now()
+        logger.info(f"Run {benchmark.name} took {str(time_end - time_start)}")
+    except Exception as e:
+        stdout_logger.exception(e)
+        logger.error(e, exc_info=True)
+
+def run_clembench(game_name: str, model_specs: List[backends.ModelSpec], gen_args: Dict,
+        experiment_name: str = None, instances_name: str = None, results_dir: str = None):
+    if experiment_name:
+        logger.info("Only running experiment: %s", experiment_name)
+    try:
+        player_agents = []
+        for model_spec in model_specs:
+            model = backends.get_model_for(model_spec)
+            model.set_gen_args(**gen_args)  # todo make this somehow available in generate method?
+            agent = ClembenchAgent(model=model)
+            player_agents.append(agent)
+        benchmark = load_benchmark(game_name, instances_name=instances_name)
+        logger.info("Running benchmark for '%s' (models=%s)", game_name,
+                    player_agents if player_agents is not None else "see experiment configs")
+        if experiment_name:
+            benchmark.filter_experiment.append(experiment_name)
+        time_start = datetime.now()
+        benchmark.run(player_agents=player_agents, results_dir=results_dir)
         time_end = datetime.now()
         logger.info(f"Run {benchmark.name} took {str(time_end - time_start)}")
     except Exception as e:

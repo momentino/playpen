@@ -8,6 +8,7 @@ from typing import List, Dict, Tuple, Any
 from tqdm import tqdm
 
 from playpen.backends import Model, CustomResponseModel, HumanModel
+from playpen.agents.base_agent import Agent
 from playpen import clemgame, backends
 from playpen.clemgame import transcript_utils, file_utils
 import playpen.clemgame.metrics as ms
@@ -717,7 +718,7 @@ class GameBenchmark(GameResourceLocator):
                     stdout_logger.error(
                         f"{self.name}: '{error_count}' exceptions occurred: See clembench.log for details.")
 
-    def run(self, player_models: List[Model], results_dir: str = None):
+    def run(self, player_agents: List[Agent], results_dir: str = None):
         """
         Runs game-play on all game instances for a game.
         There must be an instances.json with the following structure:
@@ -757,8 +758,8 @@ class GameBenchmark(GameResourceLocator):
             # Determine dialogue partners: How often to run the experiment with different partners
             dialogue_partners: List[List[Model]] = []
 
-            if player_models:  # favor runtime argument over experiment config
-                dialogue_partners = [player_models]
+            if player_agents:  # favor runtime argument over experiment config
+                dialogue_partners = [player_agents]
             elif "dialogue_partners" in experiment:  # edge-case when names are given in experiment config
                 for dialogue_pair_names in experiment["dialogue_partners"]:
                     player_models = []

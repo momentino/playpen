@@ -1,43 +1,26 @@
-import abc
-from typing import Tuple, Any
 
-class Agent(abc.ABC):
-    def __init__(self, name):
-        self.name = name
-        self.observations = []
+def init_clembench_agents(model_names: List[str]):
+    agents = []
 
-    @abc.abstractmethod
-    def act(self) -> Tuple[Any, Any, str]:
-        pass
-
-    @abc.abstractmethod
-    def observe(self, observation, reward, termination, truncation, info):
-        pass
-
-    @abc.abstractmethod
-    def shutdown(self):
-        pass
-
-    def reset(self):
-        self.observations = []
+    for name in model_names:
 
 
-    def get_observations(self):
-        return self.observations
+        def build_agent_list(game: GameBenchmark, agent_kwargs: str, gen_kwargs: str) -> List[Agent]:
 
-    def get_last_observation(self):
-        return self.observations[-1]
+            agent_args = dict(pair.split("=") for pair in agent_kwargs.split(","))
+            gen_kwargs = dict(pair.split("=") for pair in gen_kwargs.split(","))
 
-    def get_name(self) -> str:
-        return self.name
+            agents = [HFAgent(gen_kwargs=gen_kwargs, **agent_args)]
 
-    def __repr__(self):
-        return str(self)
-
-    def __str__(self):
-        return self.get_name()
-
-    def __eq__(self, other: "Agent"):
-        if not isinstance(other, Agent):
-            return False
-        return self.get_name() == other.get_name()
+            min_num_agents = 1
+            max_num_agents = 1 if game.is_single_player() else 2
+            if len(agents) > max_num_agents:
+                message = f"Too many agents for this game. The maximum number of player agents for this game is {max_num_agents}"
+                stdout_logger.error(message)
+                raise ValueError(message)
+            elif len(agents) < min_num_agents:
+                message = f"The number of agents was insufficient for playing the game. Creating {min_num_agents - len(agents)} agents with the last model specified in the arguments."
+                stdout_logger.warning(message)
+                agent = agents[-1]
+                agents.extend([agent for _ in range(min_num_agents - len(agents))])
+            return agents
