@@ -2,7 +2,8 @@ import abc
 from typing import Tuple, Any
 
 class Agent(abc.ABC):
-    def __init__(self):
+    def __init__(self, name):
+        self.name = name
         self.observations = []
 
     @abc.abstractmethod
@@ -27,16 +28,8 @@ class Agent(abc.ABC):
     def get_last_observation(self):
         return self.observations[-1]
 
-    def get_name(self) -> str:
-        return self.name
+    def get_name(self):
+        return self.get_name
 
     def __repr__(self):
-        return str(self)
-
-    def __str__(self):
-        return self.get_name()
-
-    def __eq__(self, other: "Agent"):
-        if not isinstance(other, Agent):
-            return False
-        return self.get_name() == other.get_name()
+        return self.name

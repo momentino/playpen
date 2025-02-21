@@ -2,7 +2,7 @@ from typing import Dict, Tuple, List, Union
 
 import numpy as np
 
-from playpen.backends import Model
+from playpen.agents.base_agent import Agent
 from playpen.clemgame.clemgame import GameMaster, GameBenchmark, Player, DialogueGameMaster, GameScorer
 from playpen.clemgame.metrics import METRIC_ABORTED, METRIC_SUCCESS, METRIC_LOSE, METRIC_REQUEST_COUNT, \
     METRIC_REQUEST_COUNT_VIOLATED, METRIC_REQUEST_COUNT_PARSED, METRIC_REQUEST_SUCCESS, BENCH_SCORE
@@ -25,8 +25,8 @@ logger = get_logger(__name__)
 
 class WordGuesser(Player):
 
-    def __init__(self, model: Model):
-        super().__init__(model)
+    def __init__(self, agent: Agent):
+        super().__init__(agent)
 
     def _custom_response(self, messages, turn_idx):
         # mock response
@@ -35,8 +35,8 @@ class WordGuesser(Player):
 
 class WordDescriber(Player):
 
-    def __init__(self, model: Model, max_turns):
-        super().__init__(model)
+    def __init__(self, agent: Agent, max_turns):
+        super().__init__(agent)
         self.max_turns = max_turns
 
     def _custom_response(self, messages, turn_idx):
@@ -85,8 +85,8 @@ class Taboo(DialogueGameMaster):
     word or related words in their explanation. Morphology is checked in check_clue().
     """
 
-    def __init__(self, experiment: Dict, player_models: List[Model]):
-        super().__init__(GAME_NAME, experiment, player_models)
+    def __init__(self, experiment: Dict, player_agents: List[Agent]):
+        super().__init__(GAME_NAME, experiment, player_agents)
         self.max_turns: int = experiment["max_turns"]
         self.describer_initial_prompt = self.experiment["describer_initial_prompt"]
         self.guesser_initial_prompt = self.experiment["guesser_initial_prompt"]
@@ -104,8 +104,8 @@ class Taboo(DialogueGameMaster):
         self.describer_initial_prompt = self.describer_initial_prompt.replace("$N$", str(self.max_turns))
         self.guesser_initial_prompt = self.guesser_initial_prompt.replace("$N$", str(self.max_turns))
 
-        self.describer = WordDescriber(self.player_models[0], self.max_turns)
-        self.guesser = WordGuesser(self.player_models[1])
+        self.describer = WordDescriber(self.player_agents[0], self.max_turns)
+        self.guesser = WordGuesser(self.player_agents[1])
 
         self.add_player(self.describer)
         self.add_player(self.guesser)
@@ -115,7 +115,7 @@ class Taboo(DialogueGameMaster):
         self.guess_word = None
 
     def _on_before_game(self):
-        self.add_user_message(self.describer, self.describer_initial_prompt)
+        self.share_user_message(self.describer, self.describer_initial_prompt)
         # add guesser prompt only later after first clue is given
         # thus we avoid the problem that the history contains consecutive messages of "user"
 
@@ -170,9 +170,16 @@ class Taboo(DialogueGameMaster):
         if player == self.describer:
             if self.current_turn == 0:  # special case: merge first clue into prompt
                 prompt_with_first_clue = f"{self.guesser_initial_prompt}\n\n{utterance}"
-                self.add_user_message(self.guesser, prompt_with_first_clue)
+
+                self.share_user_message(self.guesser, prompt_with_first_clue)
+                #observation = self.prepare_user_message(prompt_with_first_clue)
+                #self.guesser.observe(observation, None, None, None, None)
+                #self.add_user_message(self.guesser, prompt_with_first_clue)
+
             else:
-                self.add_user_message(self.guesser, utterance)
+               # observation = self.prepare_user_message(utterance)
+                #self.guesser.observe(observation, None, None, None, None)
+               self.share_user_message(self.guesser, utterance)
         if player == self.guesser:
             # NOTE(jg): would be interesting to test whether the model behaves
             #   differently when knowing about the guesser's guess or not knowing
@@ -181,7 +188,7 @@ class Taboo(DialogueGameMaster):
 
             # if not correct, then we add the guess and go on; otherwise we will stop immediately
             if self.guess_word != self.target_word:
-                self.add_user_message(self.describer, utterance)
+                self.share_user_message(self.describer, utterance)
 
 
 class TabooScorer(GameScorer):
@@ -274,12 +281,20 @@ class TabooGameBenchmark(GameBenchmark):
 
     def __init__(self):
         super().__init__(GAME_NAME)
+        self.min_players = 2
+        self.max_players = 2
+
+    def get_max_num_players(self) -> int:
+        return self.max_players
+
+    def get_min_num_players(self) -> int:
+        return self.min_players
 
     def get_description(self):
         return "Taboo game between two agents where one has to describe a word for the other to guess."
 
-    def create_game_master(self, experiment: Dict, player_models: List[Model]) -> GameMaster:
-        return Taboo(experiment, player_models)
+    def create_game_master(self, experiment: Dict, player_agents: List[Agent]) -> GameMaster:
+        return Taboo(experiment, player_agents)
 
     def create_game_scorer(self, experiment: Dict, game_instance: Dict) -> GameScorer:
         return TabooScorer(experiment, game_instance)

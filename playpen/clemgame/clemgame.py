@@ -9,6 +9,7 @@ from tqdm import tqdm
 
 from playpen.backends import Model, CustomResponseModel, HumanModel
 from playpen.agents.base_agent import Agent
+from playpen.agents.clembench_agent import ClembenchAgent
 from playpen import clemgame, backends
 from playpen.clemgame import transcript_utils, file_utils
 import playpen.clemgame.metrics as ms
@@ -29,30 +30,30 @@ class Player(abc.ABC):
     - the backend players are called via the generate_response() method of the backend
     """
 
-    def __init__(self, model: Model):
-        self.model = model
+    def __init__(self, agent: Agent):
+        self.agent = agent
         self.descriptor: str = None
         logger.info("Player %s", self.get_description())
 
     def get_description(self) -> str:
-        return f"{self.__class__.__name__}, {self.model}"
+        return f"{self.__class__.__name__}, {self.agent}"
 
     def __call__(self, messages: List[Dict], turn_idx) -> Tuple[Any, Any, str]:
         call_start = datetime.now()
         prompt = messages
         response = dict()
-        if isinstance(self.model, CustomResponseModel):
+        if isinstance(self.agent, CustomResponseModel):
             response_text = self._custom_response(messages, turn_idx)
-        elif isinstance(self.model, HumanModel):
+        elif isinstance(self.agent, HumanModel):
             response_text = self._terminal_response(messages, turn_idx)
         else:
-            prompt, response, response_text = self.model.generate_response(messages)
+            prompt, response, response_text = self.agent.act()
         call_duration = datetime.now() - call_start
         response["clem_player"] = {
             "call_start": str(call_start),
             "call_duration": str(call_duration),
             "response": response_text,
-            "model_name": self.model.get_name()
+            "agent_name": self.agent.get_name()
         }
         return prompt, response, response_text
 
@@ -278,14 +279,14 @@ class GameMaster(GameRecorder):
 
     """
 
-    def __init__(self, name: str, experiment: Dict, player_models: List[Model] = None):
+    def __init__(self, name: str, experiment: Dict, player_agents: List[Agent] = None):
         """
         :param name: of the game
-        :param player_models: to use for one or two players.
+        :param player_agents: to use for one or two players.
         """
         super().__init__(name)
         self.experiment: Dict = experiment
-        self.player_models: List[Model] = player_models
+        self.player_agents: List[Agent] = player_agents
 
     def setup(self, **kwargs):
         """
@@ -381,8 +382,8 @@ class DialogueGameMaster(GameMaster):
     Extended GameMaster, implementing turns as described in the clembench paper.
     Has most logging and gameplay procedures implemented, including convenient logging methods.
     """
-    def __init__(self, name: str, experiment: dict, player_models: List[Model]):
-        super().__init__(name, experiment, player_models)
+    def __init__(self, name: str, experiment: dict, player_agents: List[Agent]):
+        super().__init__(name, experiment, player_agents)
         # the logging works with an internal mapping of "Player N" -> Player
         self.players_by_names: Dict[str, Player] = collections.OrderedDict()
         self.messages_by_names: Dict[str, List] = dict()
@@ -423,7 +424,12 @@ class DialogueGameMaster(GameMaster):
         """
         raise NotImplementedError()
 
+    def reset_agents(self):
+        for player in self.__player_sequence():
+            player.agent.reset()
+
     def play(self) -> None:
+        self.reset_agents()
         self._on_before_game()
         inner_break = False
         while not inner_break and self._does_game_proceed():
@@ -434,6 +440,8 @@ class DialogueGameMaster(GameMaster):
                 if not self._does_game_proceed():
                     inner_break = True  # break outer loop without calling _does_game_proceed again
                     break  # potentially stop in between player turns
+
+
                 self.prompt(player)
                 while self._should_reprompt(player):
                     self._on_before_reprompt(player)
@@ -444,10 +452,10 @@ class DialogueGameMaster(GameMaster):
 
     def prompt(self, player: Player, is_reprompt=False):
         # GM -> Player
-        history = self.messages_by_names[player.descriptor]
-        assert history, f"messages history must not be empty for {player.descriptor}"
+        observations = player.agent.get_observations()
+        assert observations, f"observation history must not be empty for {player.descriptor}"
 
-        last_entry = history[-1]
+        last_entry = player.agent.get_last_observation()
         assert last_entry["role"] != "assistant", "Last entry should not be assistant " \
                                                   "b.c. this would be the role of the current player"
         message = last_entry["content"]
@@ -456,7 +464,7 @@ class DialogueGameMaster(GameMaster):
         action = {'type': action_type, 'content': message}
         self.log_event(from_='GM', to=player.descriptor, action=action)
 
-        _prompt, _response, response_message = player(history, self.current_turn)
+        _prompt, _response, response_message = player.agent.act()
 
         # Player -> GM
         action = {'type': 'get message', 'content': response_message}
@@ -495,16 +503,18 @@ class DialogueGameMaster(GameMaster):
         action = {'type': type_, 'content': value}
         self.log_event("GM", "GM", action)
 
-    def add_message(self, player: Player, utterance: str, role: str):
+    """def add_observation(self, player: Player, utterance: str, role: str):
         message = {"role": role, "content": utterance}
         history = self.messages_by_names[player.descriptor]
-        history.append(message)
+        history.append(message)"""
 
-    def add_user_message(self, player: Player, utterance: str):
-        self.add_message(player, utterance, role="user")
+    def share_user_message(self, player: Player, utterance: str):
+        observation = {"role": 'user', "content": utterance}
+        player.agent.observe(observation, None, None, None, None)
 
-    def add_assistant_message(self, player: Player, utterance: str):
-        self.add_message(player, utterance, role="assistant")
+    def share_assistant_message(self,  player: Player, utterance: str):
+        observation =  {"role": 'assistant', "content": utterance}
+        player.agent.observe(observation, None, None, None, None)
 
     def __validate_parse_and_add_player_response(self, player: Player, utterance: str):
         # todo: it seems we should change the order here: Parse should come first, and then validate.
@@ -512,7 +522,9 @@ class DialogueGameMaster(GameMaster):
         # Note: this would allow to cut off too long responses (during parse) and to only validate on the cut off piece.
         if self._validate_player_response(player, utterance):
             utterance = self.__parse_response(player, utterance)
-            self.add_assistant_message(player, utterance)
+
+            self.share_assistant_message(player, utterance)
+            #self.add_assistant_message(player, utterance)
             self._after_add_player_response(player, utterance)
 
     def _after_add_player_response(self, player: Player, utterance: str):
@@ -718,7 +730,140 @@ class GameBenchmark(GameResourceLocator):
                     stdout_logger.error(
                         f"{self.name}: '{error_count}' exceptions occurred: See clembench.log for details.")
 
-    def run(self, player_agents: List[Agent], results_dir: str = None):
+    def run_clembench(self, player_agents: List[Agent], results_dir: str = None):
+        """
+        Runs game-play on all game instances for a game.
+        There must be an instances.json with the following structure:
+        "experiments": [ # this is required
+            {
+                "name": <experiment-name>, # this is required
+                "param1": "value1", # optional
+                "param2": "value2", # optional
+                "game_instances": [ # this is required
+                    {"game_id": <value>, "initial_prompt": ... },
+                    {"game_id": <value>, "initial_prompt": ... }
+                ]
+            }
+        ]
+
+        The instances will be automatically stored in "game-name" with the following structure:
+            - results
+                - pairing
+                    - game-name
+                        - experiment_name
+                            - experiment.json
+                            - episode_id
+                                - instance.json
+                                - interaction.json
+        """
+        results_root = "results" if results_dir is None else results_dir
+        experiments: List = self.instances["experiments"]
+        if not experiments:
+            self.logger.warning(f"{self.name}: No experiments for %s", self.name)
+        total_experiments = len(experiments)
+        for experiment_idx, experiment in enumerate(experiments):
+            experiment_name = experiment['name']
+            if self.filter_experiment and experiment_name not in self.filter_experiment:
+                stdout_logger.info(f"Skip experiment {experiment_idx + 1} of {total_experiments}: {experiment_name}")
+                continue
+            stdout_logger.info(f"Run experiment {experiment_idx + 1} of {total_experiments}: {experiment_name}")
+            # Determine dialogue partners: How often to run the experiment with different partners
+            dialogue_partners: List[List[Agent]] = []
+
+            if player_agents:  # favor runtime argument over experiment config
+                dialogue_partners = [player_agents]
+            elif "dialogue_partners" in experiment:  # edge-case when names are given in experiment config
+                for dialogue_pair_names in experiment["dialogue_partners"]:
+                    player_models = []
+                    for model_name in dialogue_pair_names:
+                        player_model = backends.get_model_for(model_name)
+                        player_agent = ClembenchAgent(model=player_model)
+                        player_agents.append(player_agent)
+                    dialogue_partners.append(player_agents)
+                self.logger.info(f"{self.name}: Detected 'dialogue_partners' in experiment config. "
+                                 f"Will run with: {dialogue_partners}")
+
+            if not dialogue_partners:
+                message = (f"{self.name}: Neither 'dialogue_partners' set in experiment instance"
+                           f" nor 'models' given as run arg")
+                stdout_logger.error(message)
+                raise ValueError(message)
+
+            for dialogue_pair in dialogue_partners:
+                if self.is_single_player():
+                    if len(dialogue_pair) > 1:
+                        message = f"Too many player for singe-player game '{self.name}': '{len(dialogue_partners)}'"
+                        stdout_logger.error(message)
+                        raise ValueError(message)
+                    model_0 = dialogue_pair[0]
+                    model_0 = f"{model_0.get_name()}-t{model_0.get_temperature()}"
+                    # still we store to model--model dir (virtual self-play)
+                    dialogue_pair_desc = f"{model_0}--{model_0}"
+                else:  # 2-players
+                    if len(dialogue_pair) > 2:
+                        message = f"Too many player for two-player game '{self.name}': '{len(dialogue_partners)}'"
+                        stdout_logger.error(message)
+                        raise ValueError(message)
+                    if len(dialogue_pair) == 1:
+                        dialogue_pair.append(dialogue_pair[0])  # model expansion
+                    model_0 = dialogue_pair[0]
+                    model_0 = f"{model_0.get_name()}-t{model_0.get_temperature()}"
+                    model_1 = dialogue_pair[1]
+                    model_1 = f"{model_1.get_name()}-t{model_1.get_temperature()}"
+                    dialogue_pair_desc = f"{model_0}--{model_1}"
+                episode_counter = 0
+
+                self.logger.info("Activity: %s Experiment: %s Partners: %s Episode: %d",
+                                 self.name, experiment_name, dialogue_pair_desc, episode_counter)
+
+                experiment_record_dir = f"{experiment_idx}_{experiment_name}"
+                experiment_config = {k: experiment[k] for k in experiment if k != 'game_instances'}
+
+                # Add some important infos to track
+                experiment_config["timestamp"] = datetime.now().isoformat()
+                experiment_config["dialogue_partners"] = dialogue_pair_desc
+
+                self.store_results_file(experiment_config,
+                                        f"experiment_{experiment_name}.json",
+                                        dialogue_pair_desc,
+                                        sub_dir=experiment_record_dir,
+                                        root_dir=results_root)
+
+                error_count = 0
+                time_experiment_start = datetime.now()
+                game_instances: List = experiment["game_instances"]
+                for game_instance in tqdm(game_instances, desc="Playing games"):
+                    game_id = game_instance["game_id"]
+                    self.logger.info("Activity: %s Experiment: %s Episode: %d Game: %s",
+                                     self.name, experiment_name, episode_counter, game_id)
+                    episode_dir = experiment_record_dir + f"/episode_{episode_counter}"
+                    self.store_results_file(game_instance,
+                                            f"instance.json",
+                                            dialogue_pair_desc,
+                                            sub_dir=episode_dir,
+                                            root_dir=results_root)
+                    try:
+                        game_master = self.create_game_master(experiment_config, dialogue_pair)
+                        game_master.setup(**game_instance)
+                        game_master.play()
+                        game_master.store_records(results_root, dialogue_pair_desc, episode_dir)
+                    except Exception:  # continue with other episodes if something goes wrong
+                        self.logger.exception(f"{self.name}: Exception for episode {game_id} (but continue)")
+                        error_count += 1
+                    episode_counter += 1
+                if error_count > 0:
+                    stdout_logger.error(
+                        f"{self.name}: '{error_count}' exceptions occurred: See clembench.log for details.")
+                # Add experiment duration and overwrite file
+                time_experiment_end = datetime.now() - time_experiment_start
+                experiment_config["duration"] = str(time_experiment_end)
+                self.store_results_file(experiment_config,
+                                        f"experiment_{experiment_name}.json",
+                                        dialogue_pair_desc,
+                                        sub_dir=experiment_record_dir,
+                                        root_dir=results_root)
+
+    def run_playpen(self, player_agents: List[Agent], results_dir: str = None):
         """
         Runs game-play on all game instances for a game.
         There must be an instances.json with the following structure:
@@ -765,6 +910,7 @@ class GameBenchmark(GameResourceLocator):
                     player_models = []
                     for model_name in dialogue_pair_names:
                         player_model = backends.get_model_for(model_name)
+                        player_agent = ClembenchAgent(model=model)
                         player_models.append(player_model)
                     dialogue_partners.append(player_models)
                 self.logger.info(f"{self.name}: Detected 'dialogue_partners' in experiment config. "

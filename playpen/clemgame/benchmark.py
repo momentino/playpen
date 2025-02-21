@@ -67,7 +67,7 @@ def run_clembench(game_name: str, model_specs: List[backends.ModelSpec], gen_arg
         if experiment_name:
             benchmark.filter_experiment.append(experiment_name)
         time_start = datetime.now()
-        benchmark.run(player_agents=player_agents, results_dir=results_dir)
+        benchmark.run_clembench(player_agents=player_agents, results_dir=results_dir)
         time_end = datetime.now()
         logger.info(f"Run {benchmark.name} took {str(time_end - time_start)}")
     except Exception as e:

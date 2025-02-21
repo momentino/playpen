@@ -56,6 +56,7 @@ def main(args: argparse.Namespace):
         benchmark.list_games()
     if args.command_name == "run":
         # just changed here benchmark.run in benchmark.run_clembench
+
         benchmark.run_clembench(args.game,
                       model_specs=read_model_specs(args.models),
                       gen_args=read_gen_args(args),

@@ -1,3 +1,4 @@
+from typing import List
 
 def init_clembench_agents(model_names: List[str]):
     agents = []
