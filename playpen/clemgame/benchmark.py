@@ -55,13 +55,21 @@ def run_clembench(game_name: str, model_specs: List[backends.ModelSpec], gen_arg
     if experiment_name:
         logger.info("Only running experiment: %s", experiment_name)
     try:
+        benchmark = load_benchmark(game_name, instances_name=instances_name)
+        if not benchmark.is_single_player():
+            if len(model_specs) > 2:
+                message = f"Too many models specified for a two-player game '{benchmark.name}': '{len(model_specs)}'"
+                stdout_logger.error(message)
+                raise ValueError(message)
+            if len(model_specs) == 1:
+                model_specs.append(model_specs[0])
         player_agents = []
         for model_spec in model_specs:
             model = backends.get_model_for(model_spec)
             model.set_gen_args(**gen_args)  # todo make this somehow available in generate method?
             agent = ClembenchAgent(model=model)
             player_agents.append(agent)
-        benchmark = load_benchmark(game_name, instances_name=instances_name)
+
         logger.info("Running benchmark for '%s' (models=%s)", game_name,
                     player_agents if player_agents is not None else "see experiment configs")
         if experiment_name:

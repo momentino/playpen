@@ -29,7 +29,7 @@ class Agent(abc.ABC):
         return self.observations[-1]
 
     def get_name(self):
-        return self.get_name
+        return self.name
 
     def __repr__(self):
         return self.name

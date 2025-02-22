@@ -800,12 +800,12 @@ class GameBenchmark(GameResourceLocator):
                     # still we store to model--model dir (virtual self-play)
                     dialogue_pair_desc = f"{model_0}--{model_0}"
                 else:  # 2-players
-                    if len(dialogue_pair) > 2:
+                    """if len(dialogue_pair) > 2:
                         message = f"Too many player for two-player game '{self.name}': '{len(dialogue_partners)}'"
                         stdout_logger.error(message)
                         raise ValueError(message)
                     if len(dialogue_pair) == 1:
-                        dialogue_pair.append(dialogue_pair[0])  # model expansion
+                        dialogue_pair.append(dialogue_pair[0])  # model expansion"""
                     model_0 = dialogue_pair[0]
                     model_0 = f"{model_0.get_name()}-t{model_0.get_temperature()}"
                     model_1 = dialogue_pair[1]
