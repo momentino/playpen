@@ -4,8 +4,8 @@ import re
 import copy
 import numpy as np
 
-from playpen.backends import Model, HumanModel
-from playpen.clemgame.clemgame import GameMaster, GameBenchmark, GameScorer
+from playpen.agents.base_agent import Agent
+from playpen.clemgame.clemgame import DialogueGameMaster, GameBenchmark, GameScorer
 from playpen.clemgame import get_logger
 import playpen.clemgame.metrics as metrics
 
@@ -20,20 +20,20 @@ GAME_NAME = "wordle"
 logger = get_logger(__name__)
 
 
-class WordleGameMaster(GameMaster):
-    def __init__(self, game_name: str, experiment: Dict, player_models: List[Model]):
-        super().__init__(game_name, experiment, player_models)
+class WordleGameMaster(DialogueGameMaster):
+    def __init__(self, game_name: str, experiment: Dict, player_agents: List[Agent]):
+        super().__init__(game_name, experiment, player_agents)
         self.config = experiment
 
-        self.model_a = player_models[0]
-        if len(player_models) > 1:
-            self.model_b = player_models[1]
+        self.agent_a = player_agents[0]
+        if len(player_agents) > 1:
+            self.agent_b = player_agents[1]
 
-        elif len(player_models) == 1 and self.config["use_critic"]:
-            self.model_b = player_models[0]
+        elif len(player_agents) == 1 and self.config["use_critic"]:
+            self.agent_b = player_agents[0]
 
         else:
-            self.model_b = None
+            self.agent_b = None
 
         # initialise attributes that will be used for the evaluation scores
         self.aborted: bool = False
@@ -41,26 +41,28 @@ class WordleGameMaster(GameMaster):
         self.success: bool = False
         self.complete_turns: int = 0
 
-    def setup(self, game_id, target_word, target_word_clue, target_word_difficulty):
+    def _on_setup(self, game_id, target_word, target_word_clue, target_word_difficulty):
         self.game_id = game_id
         self.target_word = target_word.strip()
         self.target_word_clue = target_word_clue.strip()
         self.use_clue = self.config["use_clue"]
         self.use_critic = self.config["use_critic"]
 
-        if self.use_clue:
-            if isinstance(self.player_models[0], HumanModel):
-                logger.info(f"Target word clue: {self.target_word_clue}")
+        """if self.use_clue:
+            if isinstance(self.player_agents[0], Humanagent):
+                logger.info(f"Target word clue: {self.target_word_clue}")"""
         self.target_word_difficulty = target_word_difficulty.strip()
 
         self.guessvalidator = GuessValidator(self.target_word)
         self.guess_feedback = {}
 
         # instantiate both players
-        self.player_a = Guesser(self.model_a, self.config["lang_keywords"])
-        if self.model_b:
-            self.player_b = Critic(self.model_b, self.config["lang_keywords"])
-            player2_details = f"Word Guesser Critic ({self.model_b})"
+        self.player_a = Guesser(self.agent_a, self.config["lang_keywords"])
+        self.add_player(self.player_a)
+        if self.agent_b:
+            self.player_b = Critic(self.agent_b, self.config["lang_keywords"])
+            player2_details = f"Word Guesser Critic ({self.agent_b})"
+            self.add_player(self.player_b)
         else:
             self.player_b = None
             player2_details = f"Player B: ObjectID Evaluator (Programmatic)"
@@ -98,16 +100,11 @@ class WordleGameMaster(GameMaster):
         }
         self.before_critic = False
 
-        # add initial prompts to each player's messages
-        self.initiate(
-            self.config["guesser_prompt"], self.config["guesser_critic_prompt"]
-        )
-
         # always log the details of the players in this format (see logdoc)
         self.log_players(
             {
                 "GM": "Game master for wordle",
-                "Player 1": f"Word Guesser ({self.model_a})",
+                "Player 1": f"Word Guesser ({self.agent_a})",
                 "Player 2": player2_details,
             }
         )
@@ -115,18 +112,27 @@ class WordleGameMaster(GameMaster):
         # log any additional keys that will be relevant for evaluation
         self.log_key("n_turns", self.n_turns)
 
+    def _on_before_game(self) -> None:
+        # add initial prompts to each player's messages
+        self.initiate(
+            self.config["guesser_prompt"], self.config["guesser_critic_prompt"]
+        )
+
     def initiate(self, prompt_player_a: str, prompt_player_b: str = None) -> None:
         """Initialise the dialogue history (firstlast specific)."""
         # append the initial message of each player to their history
-        # the value user means the message is from an interlocutor of the model
-        self.player_a.history.append({"role": "user", "content": prompt_player_a})
-
+        # the value user means the message is from an interlocutor of the agent
+        #self.player_a.history.append({"role": "user", "content": prompt_player_a})
+        self.share_message(self.player_a, prompt_player_a, "user")
         if self.player_b:
-            self.player_b.history.append({"role": "user", "content": prompt_player_b})
+            #self.player_b.history.append({"role": "user", "content": prompt_player_b})
+            self.share_message(self.player_b, prompt_player_b, "user")
 
     def play(self) -> None:
         """Play the game until the end (mandatory)."""
         # play the game
+        self.reset_agents()
+        self._on_before_game()
         while self.proceed():
             self.current_turn += 1
             # always call log_next_turn when a new turn starts
@@ -322,7 +328,7 @@ class WordleGameMaster(GameMaster):
             ):
                 self.cur_retry_per_error[is_correct_reply] += 1
 
-                content_to_log = f"Guesser Error: {is_correct_reply} while parsing Player 1's (model: {self.model_a}) response"
+                content_to_log = f"Guesser Error: {is_correct_reply} while parsing Player 1's (agent: {self.agent_a}) response"
                 action = {"type": "metadata", "content": content_to_log}
                 self.log_event(from_="GM", to="GM", action=action)
 
@@ -342,7 +348,7 @@ class WordleGameMaster(GameMaster):
                 self.log_event(from_="GM", to="Player 1", action=action)
 
                 self.reprompt = False
-                answer = self._get_model_response(player, reprompt=True)
+                answer = self._get_agent_response(player, reprompt=True)
 
                 is_valid_turn = self._check_validity(player, answer)
                 if is_valid_turn:
@@ -557,10 +563,14 @@ class WordleGameMaster(GameMaster):
     def _append_utterance(self, utterance: str, player: str, role: str) -> None:
         """Add an utterance to the history of a player (firstlast specific)."""
         assert player in ("a", "b")
+
         if player == "a":
-            self.player_a.history.append({"role": role, "content": utterance})
+            #self.player_a.history.append({"role": role, "content": utterance})
+            self.share_message(self.player_a, utterance, role)
         else:
-            self.player_b.history.append({"role": role, "content": utterance})
+            #self.player_b.history.append({"role": role, "content": utterance})
+            self.share_message(self.player_b, utterance, role)
+
 
     def _get_short_prompt(self, player: str) -> str:
         """Get short prompt for a player"""
@@ -607,7 +617,8 @@ class WordleGameMaster(GameMaster):
             + self.target_word_clue
             + "\n"
         )
-        self.player_a.history[-1]["content"] += content
+        self.player_a.agent.get_last_observation()["content"] += content
+        #self.player_a.history[-1]["content"] += content
         return content
 
 
@@ -644,7 +655,9 @@ class WordleGameMaster(GameMaster):
         else:
             content = self._prepare_playera_reply_to_playerb()
             if self.current_turn == 1:
-                self.player_b.history[-1]["content"] += content
+                self.player_b.agent.get_last_observation()["content"] += content
+
+                #self.player_b.history[-1]["content"] += content
 
         if self.current_turn > 1:
             content += "\n\n" + self._get_short_prompt(player)
@@ -653,7 +666,7 @@ class WordleGameMaster(GameMaster):
 
         return content
 
-    def _get_model_response(self, player: str, reprompt=False) -> str:
+    def _get_agent_response(self, player: str, reprompt=False) -> str:
         assert player in ("a", "b")
 
         if player == "a":
@@ -669,14 +682,14 @@ class WordleGameMaster(GameMaster):
 
             # also add the reply to the transcript
             content_to_log = (
-                content if self.current_turn > 1 else use_player.history[-1]["content"]
+                content if self.current_turn > 1 else use_player.agent.get_last_observation()["content"] #history[-1]["content"]
             )
 
             action = {"type": "send message", "content": content_to_log}
             self.log_event(from_="GM", to=use_from, action=action)
 
         # make an API call (or get a programmatic response) from player a
-        prompt, raw_answer, answer = use_player(use_player.history, self.current_turn)
+        prompt, raw_answer, answer = use_player(use_player.agent.observations, self.current_turn)
         # add API call to the records
         action = {"type": "get message", "content": answer}
         self.log_event(
@@ -704,14 +717,14 @@ class WordleGameMaster(GameMaster):
         return False
     
     def _handle_playera_response(self, answer_a: str) -> str:
-        model_response = answer_a
+        agent_response = answer_a
         # check if the game should be aborted or lost
         is_valid_turn = self._check_validity("a", answer_a)
         if not is_valid_turn:
             if self.reprompt:
                 # go ahead with reprompt
                 logger.error(f"Current Turn: {self.current_turn}, INVALID_WORD in response; Reprompting player a")
-                is_valid_turn, model_response = self._handle_reprompt("a")
+                is_valid_turn, agent_response = self._handle_reprompt("a")
                 if not is_valid_turn:
                     # stop game
                     return None
@@ -719,7 +732,7 @@ class WordleGameMaster(GameMaster):
                 # stop game
                 return None        
             
-        return model_response
+        return agent_response
 
     def turn(self) -> None:
         """Perform a game turn, utterances by A and B"""
@@ -727,7 +740,7 @@ class WordleGameMaster(GameMaster):
         self.guess_feedback[self.current_turn] = {}
 
         # get player A's reply and add it to its history
-        answer_a = self._get_model_response("a")
+        answer_a = self._get_agent_response("a")
 
         # check if the game should be aborted or lost
         answer_player_a = self._handle_playera_response(answer_a)
@@ -741,7 +754,7 @@ class WordleGameMaster(GameMaster):
         if self.use_critic:
             logger.error(f"Current turn: {self.current_turn}, use_critic: {self.use_critic}, self.success: {self.success} calling player b")
             self.before_critic = False
-            answer_b = self._get_model_response("b")
+            answer_b = self._get_agent_response("b")
             # check if the game should be aborted or lost
             is_valid_turn = self._check_validity("b", answer_b)
             if not is_valid_turn:
@@ -751,7 +764,7 @@ class WordleGameMaster(GameMaster):
             logger.error(f"Valid answer {answer_b} from player b, self.success: {self.success} calling player a")
 
             # get player A's reply and add it to its history
-            answer_a = self._get_model_response("a")
+            answer_a = self._get_agent_response("a")
 
             logger.error(f"Received answer {answer_a} from player a")
             # check if the game should be aborted or lost
@@ -981,9 +994,9 @@ class WordleGameBenchmark(GameBenchmark):
         return "Wordle Game"
 
     def create_game_master(
-        self, experiment: Dict, player_models: List[Model]
-    ) -> GameMaster:
-        return WordleGameMaster(self.name, experiment, player_models)
+        self, experiment: Dict, player_agents: List[Agent]
+    ) -> DialogueGameMaster:
+        return WordleGameMaster(self.name, experiment, player_agents)
 
     def create_game_scorer(self, experiment: Dict, game_instance: Dict) -> GameScorer:
         return WordleGameScorer(self.name, experiment, game_instance)

@@ -1,10 +1,10 @@
 from typing import Dict, List
 
-from playpen.backends import Model
+from playpen.agents.base_agent import Agent
 from playpen.clemgame.clemgame import Player
 
 
-class Instruction:
+"""class Instruction:
 
     def __init__(self):
         self.user_messages = []
@@ -42,16 +42,16 @@ class Instruction:
         return self.user_messages[-1]
 
     def get_last_system_message(self):
-        return self.system_messages[-1]
+        return self.system_messages[-1]"""
 
 
 class InstructionFollower(Player):
 
-    def __init__(self, model: Model):
-        super().__init__(model)
+    def __init__(self, agent: Agent):
+        super().__init__(agent)
 
-    def __call__(self, instruction: Instruction, turn_idx):
-        return super().__call__(instruction.convert_to_query_messages(), turn_idx)
+    """def __call__(self, instruction: Instruction, turn_idx):
+        return super().__call__(instruction.convert_to_query_messages(), turn_idx)"""
 
     def _custom_response(self, messages, turn_idx):
         return "▢ P O T ▢\n▢ S ▢ ▢ ▢\n▢ ▢ ▢ ▢ ▢\n▢ ▢ ▢ ▢ ▢\n▢ D A M ▢"
@@ -59,11 +59,11 @@ class InstructionFollower(Player):
 
 class InstructionGiver(Player):
 
-    def __init__(self, model: Model):
-        super().__init__(model)
+    def __init__(self, agent: Agent):
+        super().__init__(agent)
 
-    def __call__(self, instruction: Instruction, turn_idx):
-        return super().__call__(instruction.convert_to_query_messages(), turn_idx)
+    """def __call__(self, instruction: Instruction, turn_idx):
+        return super().__call__(instruction.convert_to_query_messages(), turn_idx)"""
 
     def _custom_response(self, messages, turn_idx):
         return "Instruction: Put X in all cells"
@@ -71,7 +71,7 @@ class InstructionGiver(Player):
 
 class ImageGame:
 
-    def __init__(self, game_instance: Dict, player_models: List[Model]):
+    def __init__(self, game_instance: Dict, player_agents: List[Agent]):
         self.game_id = game_instance['game_id']
         self.player_1_prompt_header = game_instance['player_1_prompt_header']
         self.player_2_prompt_header = game_instance['player_2_prompt_header']
@@ -85,15 +85,15 @@ class ImageGame:
         self.player_1_terminate_pattern = r'{}'.format(game_instance['player_1_terminate_pattern'])
         self.player_2_response_pattern = r'{}'.format(game_instance['player_2_response_pattern'])
 
-        self.instruction_follower = InstructionFollower(player_models[1])
-        self.instruction_giver = InstructionGiver(player_models[0])
+        self.instruction_follower = InstructionFollower(player_agents[1])
+        self.instruction_giver = InstructionGiver(player_agents[0])
 
-        self.given_instruction = Instruction()
-        self.given_instruction.add_user_message(
-            self.player_1_prompt_header + '\n' + self.target_grid + '\n' + self.player_1_question + '\n')
+        #self.given_instruction = Instruction()
+        #self.given_instruction.add_user_message(
+        #    self.player_1_prompt_header + '\n' + self.target_grid + '\n' + self.player_1_question + '\n')
 
         self.next_turn_message = ''
-        self.followed_instruction = Instruction()
+        #self.followed_instruction = Instruction()
 
         self.current_turn = 0
         self.max_turns = self.grid_dimension * self.grid_dimension
@@ -104,7 +104,7 @@ class ImageGame:
             return False
         return self.current_turn < self.max_turns
 
-    def turn(self):
+    """def turn(self):
         # instruction giving - A side
         if self.next_turn_message != '':
             self.given_instruction.add_user_message(self.next_turn_message)
@@ -136,4 +136,4 @@ class ImageGame:
 
             self.followed_instruction.add_system_message(player_2_response_text)
 
-        self.current_turn += 1
+        self.current_turn += 1"""

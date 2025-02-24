@@ -10,9 +10,11 @@ class Agent(abc.ABC):
     def act(self) -> Tuple[Any, Any, str]:
         pass
 
+
     @abc.abstractmethod
     def observe(self, observation, reward, termination, truncation, info):
         pass
+
 
     @abc.abstractmethod
     def shutdown(self):

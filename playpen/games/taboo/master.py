@@ -115,7 +115,7 @@ class Taboo(DialogueGameMaster):
         self.guess_word = None
 
     def _on_before_game(self):
-        self.share_user_message(self.describer, self.describer_initial_prompt)
+        self.share_message(self.describer, self.describer_initial_prompt, "user")
         # add guesser prompt only later after first clue is given
         # thus we avoid the problem that the history contains consecutive messages of "user"
 
@@ -171,7 +171,7 @@ class Taboo(DialogueGameMaster):
             if self.current_turn == 0:  # special case: merge first clue into prompt
                 prompt_with_first_clue = f"{self.guesser_initial_prompt}\n\n{utterance}"
 
-                self.share_user_message(self.guesser, prompt_with_first_clue)
+                self.share_message(self.guesser, prompt_with_first_clue, "user")
                 #observation = self.prepare_user_message(prompt_with_first_clue)
                 #self.guesser.observe(observation, None, None, None, None)
                 #self.add_user_message(self.guesser, prompt_with_first_clue)
@@ -179,7 +179,7 @@ class Taboo(DialogueGameMaster):
             else:
                # observation = self.prepare_user_message(utterance)
                 #self.guesser.observe(observation, None, None, None, None)
-               self.share_user_message(self.guesser, utterance)
+               self.share_message(self.guesser, utterance, "user")
         if player == self.guesser:
             # NOTE(jg): would be interesting to test whether the model behaves
             #   differently when knowing about the guesser's guess or not knowing
@@ -188,7 +188,7 @@ class Taboo(DialogueGameMaster):
 
             # if not correct, then we add the guess and go on; otherwise we will stop immediately
             if self.guess_word != self.target_word:
-                self.share_user_message(self.describer, utterance)
+                self.share_message(self.describer, utterance, "user")
 
 
 class TabooScorer(GameScorer):

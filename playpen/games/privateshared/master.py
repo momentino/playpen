@@ -2,17 +2,17 @@
 A game to test the scorekeeping abilities of a model.
 Implementation of a game master that control the game mechanisms. 
 """
-
-from typing import List, Dict, Tuple
+import copy
+from typing import List, Dict, Tuple, Any
 
 import numpy as np
 from sklearn.metrics import accuracy_score as acc_score
 from sklearn.metrics import cohen_kappa_score
 
 import playpen.clemgame.metrics as ms
-from playpen.backends import Model
+from playpen.agents.base_agent import Agent
 from playpen.clemgame import file_utils
-from playpen.clemgame.clemgame import GameMaster, GameBenchmark, GameScorer
+from playpen.clemgame.clemgame import DialogueGameMaster, GameBenchmark, GameScorer
 from playpen.clemgame import get_logger
 
 from playpen.games.privateshared.game import PrivateSharedGame
@@ -24,12 +24,12 @@ from playpen.games.privateshared.constants import (
 logger = get_logger(__name__)
 
 
-class PrivateShared(GameMaster):
+class PrivateShared(DialogueGameMaster):
     """Implement mechanisms for playing PrivateShared."""
-    def __init__(self, experiment: Dict, player_models: List[Model]):
-        super().__init__(GAME_NAME, experiment, player_models)
+    def __init__(self, experiment: Dict, player_agents: List[Agent]):
+        super().__init__(GAME_NAME, experiment, player_agents)
         self.subtype = experiment['name']
-        self.model_name = self.player_models[0].get_name()
+        self.agent_name = self.player_agents[0].get_name()
         # load necessary texts
         probes_path = PROBES_PATH.format(self.subtype)
         self.probing_questions = self.load_json(probes_path)
@@ -77,7 +77,7 @@ class PrivateShared(GameMaster):
         self.probe_gt = {slot: i for i, slot in enumerate(request_order)}
         self.game = PrivateSharedGame(
             self.subtype, request_order, requests, slots,
-            self.player_models[0], words)
+            self.player_agents[0], words)
         # one probing before the game starts and one after each request
         self.n_probe_turns = self.game.max_turns + 1
         # initialise turn counters
@@ -87,20 +87,62 @@ class PrivateShared(GameMaster):
     
         self.log_players({
             'GM': 'Game master for privateshared',
-            'Player 1': f'Answerer: {self.model_name}',
+            'Player 1': f'Answerer: {self.agent_name}',
             'Player 2': 'Questioner: Programmatic'
             })
 
+        self.add_player(self.game.answerer)
+        self.add_player(self.game.questioner)
+
+    def initiate(self, initial_prompt: str) -> None:
+        """Add initial prompt to the dialogue history."""
+        #self.messages.append({'role': 'user', 'content': initial_prompt})
+        # append a "fake" turn to avoid adjacent user turns
+        #self.messages.append({'role': 'assistant', 'content': "Ok."})
+        self.share_message(self.game.answerer, initial_prompt, 'user')
+        self.share_message(self.game.questioner, initial_prompt, 'user')
+
+        self.share_message(self.game.answerer, "Ok.", 'assistant')
+        self.share_message(self.game.questioner, "Ok.", 'assistant')
+
+
+
+    def questioner_turn(self, tag: str) -> str:
+        """Append tagged next question to dialogue history and return it."""
+        _, _, request = self.game.questioner(self.game.current_turn)
+        tagged_request = f"{tag}{request}"
+        #self.messages.append({'role': 'user', 'content': tagged_request})
+        self.share_message(self.game.answerer, tagged_request, 'user')
+        self.share_message(self.game.questioner, tagged_request, 'user')
+        return tagged_request
+
+    def answerer_turn(self) -> Tuple[Any, Any, str]:
+        """
+        Get response via API call, append it to dialogue history and return
+        manipulated prompt and response.
+        """
+        prompt, raw_answer, answer = self.game.answerer(self.game.current_turn)
+        # make a copy to log a static state
+        prompt = copy.deepcopy(prompt)
+        #self.messages.append({'role': 'assistant', 'content': answer})
+        self.share_message(self.game.answerer, answer, 'assistant')
+        self.share_message(self.game.questioner, answer, 'assistant')
+        # increase the turn counter
+        self.game.current_turn += 1
+
+        return prompt, raw_answer, answer
+
     def play(self) -> None:
+        self.reset_agents()
         self.log_next_turn()
         all_probes = []
         # initiate game with the instructions prompt
-        self.game.initiate(self.initial_prompt)
+        self.initiate(self.initial_prompt)
         action = {'type': 'send message', 'content': self.initial_prompt}
         self.log_event(from_='GM', to='Player 1', action=action)
 
         # probing round before game starts
-        turn_probes, probing_successful = self.probe(self.game)
+        turn_probes, probing_successful = self.probe()
         all_probes.append(turn_probes)
         if not probing_successful:
             action = {'type': 'invalid format',
@@ -120,7 +162,7 @@ class PrivateShared(GameMaster):
                 self.aborted = True
                 break
             # probing round
-            turn_probes, probing_successful = self.probe(self.game)
+            turn_probes, probing_successful = self.probe()
             all_probes.append(turn_probes)
             if not probing_successful:
                 action = {'type': 'invalid format',
@@ -144,7 +186,7 @@ class PrivateShared(GameMaster):
         self.log_event(from_='GM', to='Player 2', action=action)
 
         # get request
-        request = self.game.questioner_turn(self.questioner_tag)
+        request = self.questioner_turn(self.questioner_tag)
 
         # pass it on to answerer; remove tag for logging
         clean_request = request.replace(self.questioner_tag, '').strip()
@@ -156,7 +198,7 @@ class PrivateShared(GameMaster):
         self.log_event(from_='GM', to='Player 1', action=action)
 
         # get answer from answerer
-        prompt, raw_answer, answer = self.game.answerer_turn()
+        prompt, raw_answer, answer = self.answerer_turn()
         action = {'type': 'get message', 'content': answer}
         call = (prompt, raw_answer)
         self.log_event(from_='Player 1', to='GM', action=action, call=call)
@@ -257,18 +299,21 @@ class PrivateShared(GameMaster):
         return [self._create_probe_dic(turn_idx, key, idx)
                 for key, idx in self.probing[str(turn_idx)].items()]
 
-    def probe(self, game: PrivateSharedGame) -> Tuple[List[Dict], bool]:
+    def probe(self) -> Tuple[List[Dict], bool]:
         """Perform a round of probing."""
         action = {'type': 'info', 'content': 'Begin probing'}
         self.log_event(from_='GM', to='GM', action=action)
-        turn = game.current_turn
+        turn = self.game.current_turn
         probes = self._create_turn_probes(turn)
         success_by_round = []
         for probe in probes:
-            history = game.messages.copy()
-            history.append({'role': 'user', 'content': ''})
+            #self.share_message(self.game.answerer, '', 'user')
+            #self.share_message(self.game.questioner, '', 'user')
+            history = self.game.answerer.agent.get_observations().copy()
+            #history.append({'role': 'user', 'content': ''})
+
             # perform a probing loop, with retries up to maximum retries
-            probing_results = self._probing_loop(probe, history, turn, game)
+            probing_results = self._probing_loop(probe, history, turn)
             answer, parsed_response, successful, tries = probing_results
             # add results to the probe object
             probe['answer'] = answer
@@ -293,7 +338,6 @@ class PrivateShared(GameMaster):
                       probe: Dict,
                       history: list,
                       turn: int,
-                      game: PrivateSharedGame
                       ) -> Tuple[str, str, bool, int]:
         """Perform a probing round until valid response or max attempts."""
         tries = 1
@@ -301,11 +345,14 @@ class PrivateShared(GameMaster):
         while tries <= len(self.retries):
             # pose probing question
             question = self._get_probe_content(probe['question'], tries)
-            history[-1]['content'] = question
+            self.share_message(self.game.answerer, question, 'user')
+            self.share_message(self.game.questioner, question, 'user')
+            #history[-1]['content'] = question
             action = {'type': 'probe question', 'content': question}
             self.log_event(from_='GM', to='Player 1', action=action)
             # get reply
-            prompt, raw_answer, answer = game.answerer(history, turn)
+            prompt, raw_answer, answer = self.game.answerer(turn)
+
             action = {'type': 'probe answer', 'content': answer}
             self.log_event(from_='Player 1', to='GM', action=action,
                            call=(prompt, raw_answer))
@@ -314,6 +361,10 @@ class PrivateShared(GameMaster):
             parsed_response = self._parse_probing_response(answer)
             action = {'type': 'parse', 'content': parsed_response}
             self.log_event(from_='GM', to='GM', action=action)
+
+            self.remove_last_message(self.game.answerer)
+            self.remove_last_message(self.game.questioner)
+
             # check if valid response, otherwise try again
             if parsed_response in (self.yes, self.no):
                 successful = True
@@ -321,7 +372,6 @@ class PrivateShared(GameMaster):
                 break
             self.violated_request_counts[turn] += 1
             tries += 1
-
         return answer, parsed_response, successful, tries
 
     def _get_probe_content(self, question: str, tries: int) -> str:
@@ -484,8 +534,8 @@ class PrivateSharedGameBenchmark(GameBenchmark):
     def get_description(self):
         return "Questioner and answerer in scorekeeping game."
 
-    def create_game_master(self, experiment: Dict, player_models: List[Model]) -> GameMaster:
-        return PrivateShared(experiment, player_models)
+    def create_game_master(self, experiment: Dict, player_agents: List[Agent]) -> DialogueGameMaster:
+        return PrivateShared(experiment, player_agents)
 
     def create_game_scorer(self, experiment: Dict, game_instance: Dict) -> GameScorer:
         return PrivateSharedScorer(experiment, game_instance)

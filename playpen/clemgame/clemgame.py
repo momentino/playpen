@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 from playpen.backends import Model, CustomResponseModel, HumanModel
 from playpen.agents.base_agent import Agent
-from playpen.agents.clembench_agent import ClembenchAgent
+from playpen.agents.clembench_agent import ClembenchAgent, CustomResponseAgent
 from playpen import clemgame, backends
 from playpen.clemgame import transcript_utils, file_utils
 import playpen.clemgame.metrics as ms
@@ -38,14 +38,14 @@ class Player(abc.ABC):
     def get_description(self) -> str:
         return f"{self.__class__.__name__}, {self.agent}"
 
-    def __call__(self, messages: List[Dict], turn_idx) -> Tuple[Any, Any, str]:
+    def __call__(self, turn_idx) -> Tuple[Any, Any, str]:
         call_start = datetime.now()
-        prompt = messages
+        prompt = self.agent.get_observations()
         response = dict()
-        if isinstance(self.agent, CustomResponseModel):
-            response_text = self._custom_response(messages, turn_idx)
-        elif isinstance(self.agent, HumanModel):
-            response_text = self._terminal_response(messages, turn_idx)
+        if isinstance(self.agent, CustomResponseAgent):
+            response_text = self._custom_response(turn_idx)
+        #elif isinstance(self.agent, HumanModel):
+        #    response_text = self._terminal_response(messages, turn_idx)
         else:
             prompt, response, response_text = self.agent.act()
         call_duration = datetime.now() - call_start
@@ -71,10 +71,9 @@ class Player(abc.ABC):
         user_input = input(f"Your response as {self.__class__.__name__} (turn: {turn_idx}):\n")
         return user_input
 
-    def _custom_response(self, messages, turn_idx) -> str:
+    def _custom_response(self, turn_idx) -> str:
         """
         Overwrite this method to implement programmatic behavior (model_name: mock, dry_run, programmatic, custom)
-        :param messages: a list of dicts that contain the history of the conversation
         :param turn_idx: the index of the current turn
         :return: the programmatic response as text
         """
@@ -508,13 +507,13 @@ class DialogueGameMaster(GameMaster):
         history = self.messages_by_names[player.descriptor]
         history.append(message)"""
 
-    def share_user_message(self, player: Player, utterance: str):
-        observation = {"role": 'user', "content": utterance}
+    def share_message(self, player: Player, utterance:str, role: str):
+        observation = {"role": role, "content": utterance}
         player.agent.observe(observation, None, None, None, None)
 
-    def share_assistant_message(self,  player: Player, utterance: str):
-        observation =  {"role": 'assistant', "content": utterance}
-        player.agent.observe(observation, None, None, None, None)
+    def remove_last_message(self, player:Player):
+        player.agent.observations = player.agent.observations[:-1]
+
 
     def __validate_parse_and_add_player_response(self, player: Player, utterance: str):
         # todo: it seems we should change the order here: Parse should come first, and then validate.
@@ -523,7 +522,7 @@ class DialogueGameMaster(GameMaster):
         if self._validate_player_response(player, utterance):
             utterance = self.__parse_response(player, utterance)
 
-            self.share_assistant_message(player, utterance)
+            self.share_message(player, utterance, 'assistant')
             #self.add_assistant_message(player, utterance)
             self._after_add_player_response(player, utterance)
 

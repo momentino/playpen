@@ -1,8 +1,8 @@
 from typing import List, Dict
 
-from playpen.backends import Model
+from playpen.agents.base_agent import Agent
 from playpen.clemgame import metrics
-from playpen.clemgame.clemgame import GameMaster, GameBenchmark, GameScorer
+from playpen.clemgame.clemgame import DialogueGameMaster, GameBenchmark, GameScorer
 from playpen.games.imagegame.game import ImageGame
 from playpen.games.imagegame.evaluator import evaluate, calculate_flipped_pixels
 from playpen.clemgame import get_logger
@@ -14,10 +14,10 @@ GAME_NAME = "imagegame"
 logger = get_logger(__name__)
 
 
-class ImageGameMaster(GameMaster):
+class ImageGameMaster(DialogueGameMaster):
 
-    def __init__(self, experiment: Dict, player_models: List[Model]):
-        super().__init__(GAME_NAME, experiment, player_models)
+    def __init__(self, experiment: Dict, player_agents: List[Agent]):
+        super().__init__(GAME_NAME, experiment, player_agents)
         self.experiment = experiment
         self.game = None
         self.request_count = 0
@@ -34,13 +34,15 @@ class ImageGameMaster(GameMaster):
     def _on_setup(self, **game_instance):
         self.game_instance = game_instance
 
-        self.game = ImageGame(self.game_instance, self.player_models)
+        self.game = ImageGame(self.game_instance, self.player_agents)
 
         self.log_players({
             "GM": "Game master for imagegame",
-            "Player_1": self.player_models[0].get_name(),
-            "Player_2": self.player_models[1].get_name()}
+            "Player_1": self.player_agents[0].get_name(),
+            "Player_2": self.player_agents[1].get_name()}
         )
+        self.add_player(self.game.instruction_giver)
+        self.add_player(self.game.instruction_follower)
 
     def setup(self, **kwargs):
         self._on_setup(**kwargs)
@@ -50,25 +52,27 @@ class ImageGameMaster(GameMaster):
         return game_name == GAME_NAME
 
     def play(self) -> None:
+        self.reset_agents()
         while self.game.proceeds():
             logger.info("Game turn: %d", self.game.current_turn)
             self.turn()
 
     def turn(self):
         # instruction giving - A side
+        self.share_message(self.game.instruction_giver, self.game.player_1_prompt_header + '\n' + self.game.target_grid + '\n' + self.game.player_1_question + '\n', 'user')
         self.log_next_turn()
         self.turn_request_stats[self.game.current_turn] = {'request_count': 0, 'parsed_count': 0, 'violated_count': 0}
 
         if self.game.next_turn_message != '':
-            self.game.given_instruction.add_user_message(self.game.next_turn_message)
+            self.share_message(self.game.instruction_giver, self.game.next_turn_message, 'user')
+            #self.game.given_instruction.add_user_message(self.game.next_turn_message)
         self.game.next_turn_message = self.game.player_1_question
 
         # log the game master to player 1
-        action = {'type': 'send message', 'content': self.game.given_instruction.user_messages[-1]}
+        action = {'type': 'send message', 'content': self.game.instruction_giver.agent.get_last_observation()}
         self.log_event(from_="GM", to="Player 1", action=action)
 
-        player_1_prompt, player_1_response, player_1_response_text = self.game.instruction_giver(self.game.given_instruction,
-                                                                                            self.game.current_turn)
+        player_1_prompt, player_1_response, player_1_response_text = self.game.instruction_giver.agent.act() #(self.game.given_instruction,self.game.current_turn)
 
         self.request_count += 1
         self.turn_request_stats[self.game.current_turn]['request_count'] += 1
@@ -78,7 +82,8 @@ class ImageGameMaster(GameMaster):
         self.log_event(from_="Player 1", to="GM", action=action, call=(player_1_prompt, player_1_response))
 
         # add the message to Player 1
-        self.game.given_instruction.add_system_message(player_1_response_text)
+        #self.game.given_instruction.add_system_message(player_1_response_text)
+        self.share_message(self.game.instruction_giver, player_1_response_text, 'assistant')
 
         # check if it reached the end on 1 side
         match = re.compile(self.game.player_1_terminate_pattern, re.IGNORECASE).match(player_1_response_text)
@@ -120,23 +125,25 @@ class ImageGameMaster(GameMaster):
 
             # instruction following - 2 side
             if self.game.current_turn == 0:
-                self.game.followed_instruction.add_user_message(
-                    self.game.player_2_prompt_header + '\n' + player_1_response_text)
+                self.share_message(self.game.instruction_follower, self.game.player_2_prompt_header + '\n' + player_1_response_text, 'user')
+                """self.game.followed_instruction.add_user_message(
+                    self.game.player_2_prompt_header + '\n' + player_1_response_text)"""
             else:
-                self.game.followed_instruction.add_user_message(player_1_response_text)
+                #self.game.followed_instruction.add_user_message(player_1_response_text)
+                self.share_message(self.game.instruction_follower, player_1_response_text, 'user')
 
 
             # log the game master to player 2
-            action = {'type': 'send message', 'content': self.game.followed_instruction.user_messages[-1]}
+            action = {'type': 'send message', 'content': self.game.instruction_follower.agent.get_last_observation()}
             self.log_event(from_="GM", to="Player 2", action=action)
 
-            player_2_prompt, player_2_response, player_2_response_text = self.game.instruction_follower(
-                self.game.followed_instruction, self.game.current_turn)
+            player_2_prompt, player_2_response, player_2_response_text = self.game.instruction_follower.agent.act() #(self.game.followed_instruction, self.game.current_turn)
 
             # log the retrieved utterance
             action = {'type': 'get message', 'content': player_2_response_text}
             self.log_event(from_="Player 2", to="GM", action=action, call=(player_2_prompt, player_2_response))
-            self.game.followed_instruction.add_system_message(player_2_response_text)
+            #self.game.followed_instruction.add_system_message(player_2_response_text)
+            self.share_message(self.game.instruction_follower, player_2_response_text, 'assistant')
 
             # increase the request count
             self.turn_request_stats[self.game.current_turn]['request_count'] += 1
@@ -369,8 +376,8 @@ class ImageGameBenchmark(GameBenchmark):
     def get_description(self):
         return "Image Game simulation to generate referring expressions and fill a grid accordingly"
 
-    def create_game_master(self, experiment: Dict, player_models: List[Model]) -> GameMaster:
-        return ImageGameMaster(experiment, player_models)
+    def create_game_master(self, experiment: Dict, player_agents: List[Agent]) -> DialogueGameMaster:
+        return ImageGameMaster(experiment, player_agents)
 
     def create_game_scorer(self, experiment: Dict, game_instance: Dict) -> GameScorer:
         return ImageGameScorer(experiment, game_instance)

@@ -1,7 +1,7 @@
 from typing import Dict, List
 
-from playpen.backends import Model
-from playpen.clemgame.clemgame import GameBenchmark, GameMaster, GameScorer
+from playpen.agents.base_agent import Agent
+from playpen.clemgame.clemgame import GameBenchmark, DialogueGameMaster, GameScorer
 from playpen.games.wordle.master import WordleGameMaster, WordleGameScorer
 
 # this will resolve into subdirectories to find the instances
@@ -15,8 +15,8 @@ class WordleWithClueGameBenchmark(GameBenchmark):
     def get_description(self):
         return "Wordle Game with a clue given to the guesser"
 
-    def create_game_master(self, experiment: Dict, player_models: List[Model]) -> GameMaster:
-        return WordleGameMaster(self.name, experiment, player_models)
+    def create_game_master(self, experiment: Dict, player_agents: List[Agent]) -> DialogueGameMaster:
+        return WordleGameMaster(self.name, experiment, player_agents)
 
     def create_game_scorer(self, experiment: Dict, game_instance: Dict) -> GameScorer:
         return WordleGameScorer(self.name, experiment, game_instance)
