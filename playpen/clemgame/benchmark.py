@@ -43,7 +43,7 @@ def run_playpen(game_name: str, agents: List[Agent],
         if experiment_name:
             benchmark.filter_experiment.append(experiment_name)
         time_start = datetime.now()
-        benchmark.run(agents=agents, results_dir=results_dir)
+        benchmark.run_playpen(player_agents=agents, results_dir=results_dir)
         time_end = datetime.now()
         logger.info(f"Run {benchmark.name} took {str(time_end - time_start)}")
     except Exception as e:
