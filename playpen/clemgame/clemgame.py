@@ -773,7 +773,6 @@ class GameBenchmark(GameResourceLocator):
                 dialogue_partners = [player_agents]
             elif "dialogue_partners" in experiment:  # edge-case when names are given in experiment config
                 for dialogue_pair_names in experiment["dialogue_partners"]:
-                    player_models = []
                     for model_name in dialogue_pair_names:
                         player_model = backends.get_model_for(model_name)
                         player_agent = ClembenchAgent(model=player_model)
@@ -900,20 +899,19 @@ class GameBenchmark(GameResourceLocator):
                 continue
             stdout_logger.info(f"Run experiment {experiment_idx + 1} of {total_experiments}: {experiment_name}")
             # Determine dialogue partners: How often to run the experiment with different partners
-            dialogue_partners: List[List[Model]] = []
+            dialogue_partners: List[List[Agent]] = []
 
             if player_agents:  # favor runtime argument over experiment config
                 dialogue_partners = [player_agents]
-            elif "dialogue_partners" in experiment:  # edge-case when names are given in experiment config
+            """elif "dialogue_partners" in experiment:  # edge-case when names are given in experiment config
                 for dialogue_pair_names in experiment["dialogue_partners"]:
-                    player_models = []
                     for model_name in dialogue_pair_names:
                         player_model = backends.get_model_for(model_name)
-                        player_agent = ClembenchAgent(model=model)
-                        player_models.append(player_model)
-                    dialogue_partners.append(player_models)
+                        player_agent = ClembenchAgent(model=player_model)
+                        player_agents.append(player_agent)
+                    dialogue_partners.append(player_agents)
                 self.logger.info(f"{self.name}: Detected 'dialogue_partners' in experiment config. "
-                                 f"Will run with: {dialogue_partners}")
+                                 f"Will run with: {dialogue_partners}")"""
 
             if not dialogue_partners:
                 message = (f"{self.name}: Neither 'dialogue_partners' set in experiment instance"
@@ -927,22 +925,22 @@ class GameBenchmark(GameResourceLocator):
                         message = f"Too many player for singe-player game '{self.name}': '{len(dialogue_partners)}'"
                         stdout_logger.error(message)
                         raise ValueError(message)
-                    model_0 = dialogue_pair[0]
-                    model_0 = f"{model_0.get_name()}-t{model_0.get_temperature()}"
+                    agent_0 = dialogue_pair[0]
+                    agent_0 = f"{agent_0.get_name()}"
                     # still we store to model--model dir (virtual self-play)
-                    dialogue_pair_desc = f"{model_0}--{model_0}"
+                    dialogue_pair_desc = f"{agent_0}--{agent_0}"
                 else:  # 2-players
-                    if len(dialogue_pair) > 2:
+                    """if len(dialogue_pair) > 2:
                         message = f"Too many player for two-player game '{self.name}': '{len(dialogue_partners)}'"
                         stdout_logger.error(message)
                         raise ValueError(message)
                     if len(dialogue_pair) == 1:
-                        dialogue_pair.append(dialogue_pair[0])  # model expansion
-                    model_0 = dialogue_pair[0]
-                    model_0 = f"{model_0.get_name()}-t{model_0.get_temperature()}"
-                    model_1 = dialogue_pair[1]
-                    model_1 = f"{model_1.get_name()}-t{model_1.get_temperature()}"
-                    dialogue_pair_desc = f"{model_0}--{model_1}"
+                        dialogue_pair.append(dialogue_pair[0])  # model expansion"""
+                    agent_0 = dialogue_pair[0]
+                    agent_0 = f"{agent_0.get_name()}"
+                    agent_1 = dialogue_pair[1]
+                    agent_1 = f"{agent_1.get_name()}"
+                    dialogue_pair_desc = f"{agent_0}--{agent_1}"
                 episode_counter = 0
 
                 self.logger.info("Activity: %s Experiment: %s Partners: %s Episode: %d",
