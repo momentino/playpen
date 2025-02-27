@@ -53,7 +53,7 @@ class InstructionFollower(Player):
     """def __call__(self, instruction: Instruction, turn_idx):
         return super().__call__(instruction.convert_to_query_messages(), turn_idx)"""
 
-    def _custom_response(self, messages, turn_idx):
+    def _custom_response(self, turn_idx):
         return "▢ P O T ▢\n▢ S ▢ ▢ ▢\n▢ ▢ ▢ ▢ ▢\n▢ ▢ ▢ ▢ ▢\n▢ D A M ▢"
 
 
@@ -65,7 +65,7 @@ class InstructionGiver(Player):
     """def __call__(self, instruction: Instruction, turn_idx):
         return super().__call__(instruction.convert_to_query_messages(), turn_idx)"""
 
-    def _custom_response(self, messages, turn_idx):
+    def _custom_response(self, turn_idx):
         return "Instruction: Put X in all cells"
 
 

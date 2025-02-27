@@ -689,7 +689,7 @@ class WordleGameMaster(DialogueGameMaster):
             self.log_event(from_="GM", to=use_from, action=action)
 
         # make an API call (or get a programmatic response) from player a
-        prompt, raw_answer, answer = use_player(use_player.agent.observations, self.current_turn)
+        prompt, raw_answer, answer = use_player(self.current_turn)
         # add API call to the records
         action = {"type": "get message", "content": answer}
         self.log_event(

@@ -13,15 +13,15 @@ class Critic(Player):
         #self.history: List = []
         self.count_turn = 0
 
-    def __call__(self, messages: List[Dict], turn_idx) -> str:
+    def __call__(self, turn_idx) -> str:
         # assert self.backend in ["human", "llm", "mock"], f"Invalid player role {self.backend}, please check the config file"
         """if self.model.model_spec.is_human():
             guess_agreement = input("Enter your agreement for the guess: ")
             # Repeating the same to maintain similar results w.r.t LLM mode
             return [guess_agreement], guess_agreement, guess_agreement"""
-        return super().__call__(messages, turn_idx)
+        return super().__call__(turn_idx)
 
-    def _custom_response(self, messages, turn_idx) -> str:
+    def _custom_response(self, turn_idx) -> str:
         # Repeating the same to maintain similar results w.r.t LLM mode
         dummy_response = f'{self.response_format_keywords["agreement_lang"]} yes\n{self.response_format_keywords["explanation_lang"]} agree with your guess'
         return dummy_response
