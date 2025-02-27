@@ -53,13 +53,13 @@ class ImageGameMaster(DialogueGameMaster):
 
     def play(self) -> None:
         self.reset_agents()
+        self.share_message(self.game.instruction_giver, self.game.player_1_prompt_header + '\n' + self.game.target_grid + '\n' + self.game.player_1_question + '\n', 'user')
         while self.game.proceeds():
             logger.info("Game turn: %d", self.game.current_turn)
             self.turn()
 
     def turn(self):
         # instruction giving - A side
-        self.share_message(self.game.instruction_giver, self.game.player_1_prompt_header + '\n' + self.game.target_grid + '\n' + self.game.player_1_question + '\n', 'user')
         self.log_next_turn()
         self.turn_request_stats[self.game.current_turn] = {'request_count': 0, 'parsed_count': 0, 'violated_count': 0}
 
