@@ -507,7 +507,7 @@ class DialogueGameMaster(GameMaster):
         history = self.messages_by_names[player.descriptor]
         history.append(message)"""
 
-    def share_message(self, player: Player, utterance:str, role: str, reward: int = None, termination: int = 0, truncation: int = 0, info: str = None):
+    def share_message(self, player: Player, utterance:str, role: str, reward: float = None, termination: bool = False, truncation: bool = False, info: str = None):
         observation = {"role": role, "content": utterance}
         player.agent.observe(observation, reward, termination, truncation, info)
 
