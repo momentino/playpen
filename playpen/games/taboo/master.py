@@ -242,16 +242,16 @@ class TabooScorer(GameScorer):
             prev_clue = turn_score["clue"]
             turn_scores.append(turn_score)
 
-            # Common metrics
-            if invalid_response:  # whether a violation of the game rules happened (response not parsable)
-                # Game-specific metrics
-                self.log_episode_score(BENCH_SCORE, np.nan)  # metric not applicable
-                reward = np.nan
+        # Common metrics
+        if invalid_response:  # whether a violation of the game rules happened (response not parsable)
+            # Game-specific metrics
+            self.log_episode_score(BENCH_SCORE, np.nan)  # metric not applicable
+            reward = np.nan
+        else:
+            if guesser_won:
+                reward = (100 / len(turn_scores))/100
             else:
-                if guesser_won:
-                    reward = (100 / len(turn_scores))/100
-                else:
-                    reward = 0
+                reward = 0
         return reward
 
 
