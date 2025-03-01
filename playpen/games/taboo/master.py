@@ -190,10 +190,70 @@ class Taboo(DialogueGameMaster):
             if self.guess_word != self.target_word:
                 self.share_message(self.describer, utterance, "user")
 
+    def _on_after_game(self):
+        interactions = self.interactions
+        scorer = TabooScorer(None, None)
+        reward = scorer.compute_total_reward(interactions)
+        if reward == np.nan:
+            self.share_message(self.guesser, "_EPISODE_END_", 'scorer', reward=0, truncation=1)
+        else:
+            self.share_message(self.guesser, "_EPISODE_END_", 'scorer', reward=reward, termination=1)
+
 
 class TabooScorer(GameScorer):
     def __init__(self, experiment: Dict, game_instance: Dict):
         super().__init__(GAME_NAME, experiment, game_instance)
+
+    def compute_total_reward(self, episode_interactions: Dict) -> int:
+        """ Episode level reward"""
+        turn_scores = []
+        prev_guess = None
+        prev_guess_counter = 0
+        prev_clue = None
+        prev_clue_counter = 0
+        invalid_response = False  # Note: This only takes into consideration that both players were compliant or not
+        guesser_won = False
+        for turn_idx, turn in enumerate(episode_interactions["turns"]):
+            turn_score = {"guess": None, "clue": None, "request_count": 1}
+
+            for event in turn:
+                action = event["action"]
+                if action["type"] == "invalid format":
+                    invalid_response = True
+                if action["type"] == "guess":
+                    turn_score["guess"] = action["content"]
+                if action["type"] == "clue":
+                    turn_score["clue"] = action["content"]
+                if action["type"] == "correct guess":
+                    guesser_won = True
+
+            if invalid_response:
+                turn_score["violated_request_count"] = 1
+                turn_score["parsed_request_count"] = 0
+            else:
+                turn_score["violated_request_count"] = 0
+                turn_score["parsed_request_count"] = 1
+
+            if turn_score["guess"] is not None and turn_score["guess"] == prev_guess:  # might be None, if clue is wrong
+                prev_guess_counter += 1
+            if turn_score["clue"] is not None and turn_score["clue"] == prev_clue:
+                prev_clue_counter += 1
+            prev_guess = turn_score["guess"]
+            prev_clue = turn_score["clue"]
+            turn_scores.append(turn_score)
+
+            # Common metrics
+            if invalid_response:  # whether a violation of the game rules happened (response not parsable)
+                # Game-specific metrics
+                self.log_episode_score(BENCH_SCORE, np.nan)  # metric not applicable
+                reward = np.nan
+            else:
+                if guesser_won:
+                    reward = (100 / len(turn_scores))/100
+                else:
+                    reward = 0
+        return reward
+
 
     def compute_scores(self, episode_interactions: Dict) -> None:
         """ Episode level scores"""
