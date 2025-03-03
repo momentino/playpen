@@ -127,6 +127,11 @@ class PrivateShared(DialogueGameMaster):
         return prompt, raw_answer, answer
 
     def play(self) -> None:
+        interactions = self.interactions
+        game_instance = self.game_instance
+        experiment = self.experiment
+        scorer = PrivateSharedScorer(experiment, game_instance)
+
         self.reset_agents()
         self.log_next_turn()
         all_probes = []
@@ -138,6 +143,7 @@ class PrivateShared(DialogueGameMaster):
         # probing round before game starts
         turn_probes, probing_successful = self.probe()
         all_probes.append(turn_probes)
+
         if not probing_successful:
             action = {'type': 'invalid format',
                       'content': 'Abort: invalid format in probing.'}
@@ -165,11 +171,20 @@ class PrivateShared(DialogueGameMaster):
                 self.aborted = True
                 break
 
+
+            reward = scorer.compute_turn_reward(interactions,self.game.current_turn)
+            self.turn_rewards.append(reward)
+            """if reward == np.nan:
+                self.share_message(self.game.answerer, "_TURN_END_", 'scorer', reward=0, truncation=True)
+            else:
+                self.share_message(self.game.answerer, "_TURN_END_", 'scorer', reward=reward, termination=True)"""
+
         self.log_key('probes', all_probes)
         self.log_key('realised_slots', self.probe_gt)
         action = {'type': 'end', 'content': 'Game finished.'}
         self.log_event(from_='GM', to='GM', action=action)
         self._log_eval_assets()
+        self._on_after_game()
 
     def turn(self) -> bool:
         """Perform one slot-filling turn."""
@@ -193,16 +208,8 @@ class PrivateShared(DialogueGameMaster):
 
         # get answer from answerer
         prompt, raw_answer, answer = self.answerer_turn()
-
-        # compute turn-level reward
-        interactions = self.interactions
-        game_instance = self.game_instance
-        experiment = self.experiment
-        scorer = PrivateSharedScorer(experiment, game_instance)
-        reward = scorer.compute_turn_reward(interactions, self.game.current_turn - 1)
-        self.turn_rewards.append(reward)
-        self.share_message(self.game.answerer, answer, 'assistant', reward=reward)
-        self.share_message(self.game.questioner, answer, 'assistant', reward=reward)
+        self.share_message(self.game.answerer, answer, 'assistant')
+        self.share_message(self.game.questioner, answer, 'assistant')
 
         action = {'type': 'get message', 'content': answer}
         call = (prompt, raw_answer)
@@ -467,12 +474,8 @@ class PrivateSharedScorer(GameScorer):
         filled = logs['Filled Slots']
         sf_acc = sum(filled) / len(filled) if not aborted else np.nan
         bench_score = PrivateSharedScorer.compute_bench_score(sf_acc, trunc_kappa)
-
-
-
-
         reward = bench_score/100
-        return bench_score
+        return reward
 
     def compute_scores(self, episode_interactions: Dict) -> None:
         logs = episode_interactions
