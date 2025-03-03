@@ -204,7 +204,7 @@ class TabooScorer(GameScorer):
     def __init__(self, experiment: Dict, game_instance: Dict):
         super().__init__(GAME_NAME, experiment, game_instance)
 
-    def compute_total_reward(self, episode_interactions: Dict) -> int:
+    def compute_total_reward(self, episode_interactions: Dict) -> float:
         """ Episode level reward"""
         turn_scores = []
         prev_guess = None
@@ -245,11 +245,11 @@ class TabooScorer(GameScorer):
         # Common metrics
         if invalid_response:  # whether a violation of the game rules happened (response not parsable)
             # Game-specific metrics
-            self.log_episode_score(BENCH_SCORE, np.nan)  # metric not applicable
             reward = np.nan
         else:
             if guesser_won:
                 reward = (100 / len(turn_scores))/100
+                print(" REWARD ", reward)
             else:
                 reward = 0
         return reward

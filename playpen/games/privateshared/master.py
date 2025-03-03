@@ -28,6 +28,7 @@ class PrivateShared(DialogueGameMaster):
     """Implement mechanisms for playing PrivateShared."""
     def __init__(self, experiment: Dict, player_agents: List[Agent]):
         super().__init__(GAME_NAME, experiment, player_agents)
+        self.experiment = experiment
         self.subtype = experiment['name']
         self.agent_name = self.player_agents[0].get_name()
         # load necessary texts
@@ -50,18 +51,11 @@ class PrivateShared(DialogueGameMaster):
         self.violated_request_counts: List = None
 
     def setup(self,
-              game_id: int,
-              initial_prompt: str,
-              request_order: List[str],
-              requests: Dict[str, int],
-              probes: Dict[int, Dict[str, int]],
-              slots: Dict[str, str],
-              tag: str,
-              lang: str,
+              **game_instance: Dict,
               ) -> None:
-
+        self.game_instance = game_instance
         # load language specific words
-        words = self.load_json(WORDS_PATH.format(lang))
+        words = self.load_json(WORDS_PATH.format(game_instance['lang']))
         self.answer = words['ANSWER']
         self.aside = words['ASIDE']
         self.me = words['ME']
@@ -71,12 +65,12 @@ class PrivateShared(DialogueGameMaster):
         self.no = words['NO']
         self.coda = words['CODA']
 
-        self.questioner_tag = f"{tag}: "
-        self.initial_prompt = initial_prompt
-        self.probing = probes
-        self.probe_gt = {slot: i for i, slot in enumerate(request_order)}
+        self.questioner_tag = f"{game_instance['tag']}: "
+        self.initial_prompt = game_instance['initial_prompt']
+        self.probing = game_instance['probes']
+        self.probe_gt = {slot: i for i, slot in enumerate(game_instance['request_order'])}
         self.game = PrivateSharedGame(
-            self.subtype, request_order, requests, slots,
+            self.subtype, game_instance['request_order'], game_instance['requests'], game_instance['slots'],
             self.player_agents[0], words)
         # one probing before the game starts and one after each request
         self.n_probe_turns = self.game.max_turns + 1
@@ -423,12 +417,60 @@ class PrivateShared(DialogueGameMaster):
     def applies_to(cls, game_name: str) -> bool:
         return game_name == GAME_NAME
 
+    def _on_after_game(self):
+        interactions = self.interactions
+        game_instance = self.game_instance
+        experiment = self.experiment
+        scorer = PrivateSharedScorer(experiment, game_instance)
+        reward = scorer.compute_total_reward(interactions)
+        if reward == np.nan:
+            self.share_message(self.game.answerer, "_EPISODE_END_", 'scorer', reward=0, truncation=True)
+        else:
+            self.share_message(self.game.answerer, "_EPISODE_END_", 'scorer', reward=reward, termination=True)
+
 
 class PrivateSharedScorer(GameScorer):
 
     def __init__(self, experiment: Dict, game_instance: Dict):
         super().__init__(GAME_NAME, experiment, game_instance)
         self.slots = game_instance["slots"]
+
+    def compute_total_reward(self, episode_interactions: Dict) -> float:
+        logs = episode_interactions
+        gold = []
+        pred = []
+        aborted = logs['Aborted']
+
+        """Compute and log episode-level scores."""
+        # specific scores
+        acc = acc_score(gold, pred) if not aborted else np.nan
+        kappa = cohen_kappa_score(gold, pred) if not aborted else np.nan
+        # we truncate kappa to be between 0 and 1
+        trunc_kappa = max(0, kappa) if not aborted else np.nan
+        filled = logs['Filled Slots']
+        sf_acc = sum(filled) / len(filled) if not aborted else np.nan
+        bench_score = PrivateSharedScorer.compute_bench_score(sf_acc, trunc_kappa)
+
+        self.log_episode_score('Accuracy', acc)
+        self.log_episode_score('Kappa', kappa)
+        self.log_episode_score('Truncated Kappa', trunc_kappa)
+        self.log_episode_score('Slot-Filling-Accuracy', sf_acc)
+        self.log_episode_score(ms.BENCH_SCORE, bench_score)
+
+        # common scores
+        success_ratio = int(acc == 1. and sf_acc == 1.) if not aborted else 0
+        lose_ratio = int(not success_ratio) if not aborted else 0
+        reqs = sum(logs[ms.METRIC_REQUEST_COUNT])
+        parsed_reqs = sum(logs[ms.METRIC_REQUEST_COUNT_PARSED])
+        violated_reqs = sum(logs[ms.METRIC_REQUEST_COUNT_VIOLATED])
+
+        self.log_episode_score(ms.METRIC_ABORTED, int(aborted))
+        self.log_episode_score(ms.METRIC_LOSE, lose_ratio)
+        self.log_episode_score(ms.METRIC_SUCCESS, success_ratio)
+        self.log_episode_score(ms.METRIC_REQUEST_COUNT, reqs)
+        self.log_episode_score(ms.METRIC_REQUEST_COUNT_PARSED, parsed_reqs)
+        self.log_episode_score(ms.METRIC_REQUEST_COUNT_VIOLATED, violated_reqs)
+        self.log_episode_score(ms.METRIC_REQUEST_SUCCESS, parsed_reqs / reqs)
 
     def compute_scores(self, episode_interactions: Dict) -> None:
         logs = episode_interactions

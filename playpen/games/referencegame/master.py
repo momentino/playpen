@@ -1,4 +1,5 @@
 from typing import List, Dict
+from xxsubtype import bench
 
 import numpy as np
 
@@ -41,6 +42,7 @@ class ReferenceGameMaster(DialogueGameMaster):
         logger.info("Game turn: %d", self.game.turn_count)
         self.reset_agents()
         self.turn()
+        self._on_after_game()
 
     def turn(self):
 
@@ -114,6 +116,17 @@ class ReferenceGameMaster(DialogueGameMaster):
                       'original_content': player_2_response_text}
             self.log_event(from_="GM", to="GM", action=action)
 
+    def _on_after_game(self):
+        interactions = self.interactions
+        game_instance = self.game_instance
+        experiment = self.experiment
+        scorer = ReferenceGameScorer(experiment, game_instance)
+        reward = scorer.compute_total_reward(interactions)
+        if reward == np.nan:
+            self.share_message(self.game.instruction_follower, "_EPISODE_END_", 'scorer', reward=0, truncation=True)
+        else:
+            self.share_message(self.game.instruction_follower, "_EPISODE_END_", 'scorer', reward=reward, termination=True)
+
 
 class ReferenceGameScorer(GameScorer):
 
@@ -122,6 +135,64 @@ class ReferenceGameScorer(GameScorer):
         self.target_grid_name = game_instance["target_grid_name"]
         self.player_2_response_pattern = game_instance["player_2_response_pattern"]
         self.player_1_response_pattern = game_instance["player_1_response_pattern"]
+
+    def compute_total_reward(self, episode_interactions: Dict) -> float:
+        turn = episode_interactions["turns"][0]
+        aborted = False
+
+        turn_request_count = 0
+        turn_parsed_request_count = 0
+        episode_request_count = 0
+        episode_parsed_request_count = 0
+
+        success = 0
+
+        # evaluate Player 1
+        turn_request_count += 1
+        episode_request_count += 1
+        # check if the Player 1 message followed the rule
+        # (true if third interaction (GM to GM) has type "parse")
+        if turn[2]['action']['type'] == "parse":
+            turn_parsed_request_count += 1
+            episode_parsed_request_count += 1
+
+            # evaluate Player 2 (only if Player 1's response was valid)
+            turn_request_count += 1
+            episode_request_count += 1
+            # check if the Player 2 message matched the rule
+            # (true if sixth interaction (GM to GM) has type "parse")
+
+            # allow for more liberal player 2 parsing by rematching original response with more liberal regex
+            # TODO: move to game master for future runs
+            p2_match = False
+            if turn[5]['action']['type'] == "invalid format":
+                player_2_pattern = re.compile(self.player_2_response_pattern, re.IGNORECASE)
+                p2_match = re.match(player_2_pattern, turn[5]['action']['original_content'])
+
+            if turn[5]['action']['type'] == "parse" or p2_match:
+                turn_parsed_request_count += 1
+                episode_parsed_request_count += 1
+                # check if the target grid number matches the output from Player 2
+                player_2_answer = ""
+                if p2_match:
+                    player_2_answer = p2_match.group('content')
+                elif turn[5]['action']['type'] == "parse":
+                    if 'answer' not in turn[5]['action']:
+                        player_2_pattern = re.compile(self.player_2_response_pattern, re.IGNORECASE)
+                        p2_match = re.match(player_2_pattern, turn[5]['action']['content'])
+                        player_2_answer = p2_match.group('content')
+                    else:
+                        player_2_answer = turn[5]['action']['answer']
+
+                if player_2_answer.lower() in self.target_grid_name:
+                    success = 1
+            else:
+                aborted = True
+        else:
+            aborted = True
+
+        reward = success / 10 if not aborted else np.nan
+        return reward
 
     def compute_scores(self, episode_interactions: Dict) -> None:
         '''
