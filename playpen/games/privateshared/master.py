@@ -172,7 +172,7 @@ class PrivateShared(DialogueGameMaster):
                 break
 
 
-            reward = scorer.compute_turn_reward(interactions,self.game.current_turn)
+            reward = scorer.compute_turn_reward(all_probes,self.game.current_turn)
             self.turn_rewards.append(reward)
             """if reward == np.nan:
                 self.share_message(self.game.answerer, "_TURN_END_", 'scorer', reward=0, truncation=True)
@@ -436,7 +436,7 @@ class PrivateShared(DialogueGameMaster):
     def applies_to(cls, game_name: str) -> bool:
         return game_name == GAME_NAME
 
-    def _on_after_game(self):
+    def _on_after_game(self) -> None:
         interactions = self.interactions
         game_instance = self.game_instance
         experiment = self.experiment
@@ -454,8 +454,8 @@ class PrivateSharedScorer(GameScorer):
         super().__init__(GAME_NAME, experiment, game_instance)
         self.slots = game_instance["slots"]
 
-    def compute_turn_reward(self, episode_interactions: Dict, turn: int):
-        turn_gt, turn_pred = self._get_gold_pred(episode_interactions['probes'][turn])
+    def compute_turn_reward(self, probes: list, turn: int):
+        turn_gt, turn_pred = self._get_gold_pred(probes[turn])
         acc = acc_score(turn_gt, turn_pred)
         return acc/10
 
