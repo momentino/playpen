@@ -50,6 +50,8 @@ class PrivateShared(DialogueGameMaster):
         self.parsed_request_counts: List = None
         self.violated_request_counts: List = None
 
+        self.turn_rewards: List = []
+
     def setup(self,
               **game_instance: Dict,
               ) -> None:
@@ -118,9 +120,7 @@ class PrivateShared(DialogueGameMaster):
         prompt, raw_answer, answer = self.game.answerer(self.game.current_turn)
         # make a copy to log a static state
         prompt = copy.deepcopy(prompt)
-        #self.messages.append({'role': 'assistant', 'content': answer})
-        self.share_message(self.game.answerer, answer, 'assistant')
-        self.share_message(self.game.questioner, answer, 'assistant')
+
         # increase the turn counter
         self.game.current_turn += 1
 
@@ -193,6 +193,17 @@ class PrivateShared(DialogueGameMaster):
 
         # get answer from answerer
         prompt, raw_answer, answer = self.answerer_turn()
+
+        # compute turn-level reward
+        interactions = self.interactions
+        game_instance = self.game_instance
+        experiment = self.experiment
+        scorer = PrivateSharedScorer(experiment, game_instance)
+        reward = scorer.compute_turn_reward(interactions, self.game.current_turn - 1)
+        self.turn_rewards.append(reward)
+        self.share_message(self.game.answerer, answer, 'assistant', reward=reward)
+        self.share_message(self.game.questioner, answer, 'assistant', reward=reward)
+
         action = {'type': 'get message', 'content': answer}
         call = (prompt, raw_answer)
         self.log_event(from_='Player 1', to='GM', action=action, call=call)
@@ -224,6 +235,7 @@ class PrivateShared(DialogueGameMaster):
         # pseudo passing parsed answer on to questioner
         action = {'type': 'send message', 'content': parsed_answer}
         self.log_event(from_='GM', to='Player 2', action=action)
+
 
         return True
 
@@ -435,6 +447,11 @@ class PrivateSharedScorer(GameScorer):
         super().__init__(GAME_NAME, experiment, game_instance)
         self.slots = game_instance["slots"]
 
+    def compute_turn_reward(self, episode_interactions: Dict, turn: int):
+        turn_gt, turn_pred = self._get_gold_pred(episode_interactions['probes'][turn])
+        acc = acc_score(turn_gt, turn_pred)
+        return acc/10
+
     def compute_total_reward(self, episode_interactions: Dict) -> float:
         logs = episode_interactions
         gold = []
@@ -451,26 +468,11 @@ class PrivateSharedScorer(GameScorer):
         sf_acc = sum(filled) / len(filled) if not aborted else np.nan
         bench_score = PrivateSharedScorer.compute_bench_score(sf_acc, trunc_kappa)
 
-        self.log_episode_score('Accuracy', acc)
-        self.log_episode_score('Kappa', kappa)
-        self.log_episode_score('Truncated Kappa', trunc_kappa)
-        self.log_episode_score('Slot-Filling-Accuracy', sf_acc)
-        self.log_episode_score(ms.BENCH_SCORE, bench_score)
 
-        # common scores
-        success_ratio = int(acc == 1. and sf_acc == 1.) if not aborted else 0
-        lose_ratio = int(not success_ratio) if not aborted else 0
-        reqs = sum(logs[ms.METRIC_REQUEST_COUNT])
-        parsed_reqs = sum(logs[ms.METRIC_REQUEST_COUNT_PARSED])
-        violated_reqs = sum(logs[ms.METRIC_REQUEST_COUNT_VIOLATED])
 
-        self.log_episode_score(ms.METRIC_ABORTED, int(aborted))
-        self.log_episode_score(ms.METRIC_LOSE, lose_ratio)
-        self.log_episode_score(ms.METRIC_SUCCESS, success_ratio)
-        self.log_episode_score(ms.METRIC_REQUEST_COUNT, reqs)
-        self.log_episode_score(ms.METRIC_REQUEST_COUNT_PARSED, parsed_reqs)
-        self.log_episode_score(ms.METRIC_REQUEST_COUNT_VIOLATED, violated_reqs)
-        self.log_episode_score(ms.METRIC_REQUEST_SUCCESS, parsed_reqs / reqs)
+
+        reward = bench_score/100
+        return bench_score
 
     def compute_scores(self, episode_interactions: Dict) -> None:
         logs = episode_interactions
