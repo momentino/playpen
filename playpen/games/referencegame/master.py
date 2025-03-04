@@ -191,7 +191,7 @@ class ReferenceGameScorer(GameScorer):
         else:
             aborted = True
 
-        reward = success / 10 if not aborted else np.nan
+        reward = success if not aborted else np.nan
         return reward
 
     def compute_scores(self, episode_interactions: Dict) -> None:
