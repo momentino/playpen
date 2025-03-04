@@ -190,7 +190,7 @@ class ImageGameMaster(DialogueGameMaster):
         scorer = ImageGameScorer(experiment, game_instance)
         reward = scorer.compute_total_reward(interactions)
         if reward == np.nan:
-            self.share_message(self.game.instruction_follower, "_EPISODE_END_", 'scorer', reward=0, truncation=True)
+            self.share_message(self.game.instruction_follower, "_EPISODE_END_", 'scorer', reward=np.nan, truncation=True)
         else:
             self.share_message(self.game.instruction_follower, "_EPISODE_END_", 'scorer', reward=reward, termination=True)
 
@@ -246,9 +246,7 @@ class ImageGameScorer(GameScorer):
 
     def compute_total_reward(self, episode_interactions: Dict) -> float:
 
-        episode_request_count = 0
-        episode_parsed_request_count = 0
-
+        precision, recall, f1 = 0, 0, 0
         aborted = False
 
         # loop over each turn and calculate the metrics for both Player 1 and 2.
@@ -262,8 +260,6 @@ class ImageGameScorer(GameScorer):
             match = re.compile(self.player1_terminate_pattern, re.IGNORECASE).match(player_1_message)
             if match:
                 break
-
-            episode_request_count += 1
 
             # check the Player 1 message if it matches the rule
             player_1_message_matched = re.compile(self.player1_response_pattern, re.IGNORECASE).match(player_1_message)
@@ -279,26 +275,22 @@ class ImageGameScorer(GameScorer):
 
             # Player 2 message
             player_2_message = turn[4]['action']['content']
-            episode_request_count += 1
 
             # check Player 2 message if it matches the instruction => grid
             match = re.compile(self.player2_response_pattern).match(player_2_message)
-            if match:
-                episode_parsed_request_count += 1
-            else:
+            if not match:
                 aborted = True
-                break
+            try:
+                precision, recall, f1 = evaluate(self.target_grid, player_2_message)
+            except:
+                pass
+
 
         # Episode level logging
         if aborted:
             reward = np.nan
         else:
-            # request success ratio
-            if episode_request_count == 0:
-                request_success_ratio = 0
-            else:
-                request_success_ratio = round(episode_parsed_request_count / float(episode_request_count), 4)
-            reward = request_success_ratio
+            reward = 1 if f1 >= 99 else 0
         return reward
 
 

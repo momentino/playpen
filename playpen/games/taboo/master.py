@@ -195,7 +195,7 @@ class Taboo(DialogueGameMaster):
         scorer = TabooScorer(None, None)
         reward = scorer.compute_total_reward(interactions)
         if reward == np.nan:
-            self.share_message(self.guesser, "_EPISODE_END_", 'scorer', reward=0, truncation=True)
+            self.share_message(self.guesser, "_EPISODE_END_", 'scorer', reward=np.nan, truncation=True)
         else:
             self.share_message(self.guesser, "_EPISODE_END_", 'scorer', reward=reward, termination=True)
 
