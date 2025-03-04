@@ -249,7 +249,6 @@ class TabooScorer(GameScorer):
         else:
             if guesser_won:
                 reward = (100 / len(turn_scores))/100
-                print(" REWARD ", reward)
             else:
                 reward = 0
         return reward
