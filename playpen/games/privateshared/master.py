@@ -459,15 +459,23 @@ class PrivateSharedScorer(GameScorer):
         acc = acc_score(turn_gt, turn_pred)
         return acc/10
 
+    def _compute_turn_scores_no_log(self, logs: Dict, turn: int) -> Tuple[List, List]:
+        # specific scores
+        turn_gt, turn_pred = self._get_gold_pred(logs['probes'][turn])
+        return turn_gt, turn_pred
+
     def compute_total_reward(self, episode_interactions: Dict) -> float:
         logs = episode_interactions
         gold = []
         pred = []
         aborted = logs['Aborted']
+        for turn in range(logs['Played Probe Rounds']):
+            turn_gt, turn_pred = self._compute_turn_scores_no_log(logs, turn)
+            gold += turn_gt
+            pred += turn_pred
 
         """Compute and log episode-level scores."""
         # specific scores
-        acc = acc_score(gold, pred) if not aborted else np.nan
         kappa = cohen_kappa_score(gold, pred) if not aborted else np.nan
         # we truncate kappa to be between 0 and 1
         trunc_kappa = max(0, kappa) if not aborted else np.nan
