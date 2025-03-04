@@ -12,8 +12,6 @@ class ClembenchAgent(Agent):
 
     def observe(self, observation, reward, termination, truncation, info):
         self.observations.append(observation)
-        print(reward)
-
 
     def get_temperature(self):
         return self.model.get_temperature()
