@@ -8,6 +8,7 @@ from playpen.games.imagegame.evaluator import evaluate, calculate_flipped_pixels
 from playpen.clemgame import get_logger
 import re
 import math
+import numpy as np
 
 GAME_NAME = "imagegame"
 
@@ -26,6 +27,8 @@ class ImageGameMaster(DialogueGameMaster):
         self.aborted_ratio = 0
 
         self.turn_request_stats = {}
+
+        self.turn_rewards: List = []
 
     def get_description(self) -> str:
         return "Image Game simulation"
@@ -54,9 +57,16 @@ class ImageGameMaster(DialogueGameMaster):
     def play(self) -> None:
         self.reset_agents()
         self.share_message(self.game.instruction_giver, self.game.player_1_prompt_header + '\n' + self.game.target_grid + '\n' + self.game.player_1_question + '\n', 'user')
+        interactions = self.interactions
+        game_instance = self.game_instance
+        experiment = self.experiment
+        scorer = ImageGameScorer(experiment, game_instance)
         while self.game.proceeds():
             logger.info("Game turn: %d", self.game.current_turn)
             self.turn()
+            turn_reward = scorer.compute_turn_reward(interactions, self.game.current_turn-1)
+            self.turn_rewards.append(turn_reward)
+        self._on_after_game()
 
     def turn(self):
         # instruction giving - A side
@@ -173,6 +183,17 @@ class ImageGameMaster(DialogueGameMaster):
 
         self.game.current_turn += 1
 
+    def _on_after_game(self) -> None:
+        interactions = self.interactions
+        game_instance = self.game_instance
+        experiment = self.experiment
+        scorer = ImageGameScorer(experiment, game_instance)
+        reward = scorer.compute_total_reward(interactions)
+        if reward == np.nan:
+            self.share_message(self.game.answerer, "_EPISODE_END_", 'scorer', reward=0, truncation=True)
+        else:
+            self.share_message(self.game.answerer, "_EPISODE_END_", 'scorer', reward=reward, termination=True)
+
 
 class ImageGameScorer(GameScorer):
 
@@ -182,6 +203,104 @@ class ImageGameScorer(GameScorer):
         self.player1_response_pattern = r'{}'.format(game_instance["player_1_response_pattern"])
         self.player2_response_pattern = r'{}'.format(game_instance["player_2_response_pattern"])
         self.player1_terminate_pattern = r'{}'.format(game_instance["player_1_terminate_pattern"])
+
+    def compute_turn_reward(self, episode_interactions: Dict, turn: int) -> float:
+        precision, recall, f1 = 0, 0, 0
+        # loop over each turn and calculate the metrics for both Player 1 and 2.
+        turn_interaction = episode_interactions["turns"][turn]
+
+        # Player 1 message
+        player_1_message = turn_interaction[1]['action']['content']
+
+        # Player generates "DONE"
+        match = re.compile(self.player1_terminate_pattern, re.IGNORECASE).match(player_1_message)
+        if match:
+            return 0
+
+        # check the Player 1 message if it matches the rule
+        player_1_message_matched = re.compile(self.player1_response_pattern, re.IGNORECASE).match(player_1_message)
+        if player_1_message_matched:
+            if '\n' in player_1_message:
+                parsed_instruction = player_1_message.split('\n')[0]
+                player_1_message = parsed_instruction
+
+        else:
+            return np.nan
+
+        # Player 2 message
+        player_2_message = turn_interaction[4]['action']['content']
+
+        # check Player 2 message if it matches the instruction => grid
+        match = re.compile(self.player2_response_pattern).match(player_2_message)
+        if not match:
+            return np.nan
+
+        try:
+            precision, recall, f1 = evaluate(self.target_grid, player_2_message)
+        except:
+            pass
+        number_of_tokens = len(player_1_message.replace('Instruction:', '').strip().split(' '))
+        reward = (f1-number_of_tokens)/100
+        return reward
+
+
+    def compute_total_reward(self, episode_interactions: Dict) -> float:
+
+        episode_request_count = 0
+        episode_parsed_request_count = 0
+
+        aborted = False
+
+        # loop over each turn and calculate the metrics for both Player 1 and 2.
+
+        for t_index, turn in enumerate(episode_interactions["turns"]):
+
+            # Player 1 message
+            player_1_message = turn[1]['action']['content']
+
+            # Player generates "DONE"
+            match = re.compile(self.player1_terminate_pattern, re.IGNORECASE).match(player_1_message)
+            if match:
+                break
+
+            episode_request_count += 1
+
+            # check the Player 1 message if it matches the rule
+            player_1_message_matched = re.compile(self.player1_response_pattern, re.IGNORECASE).match(player_1_message)
+            if not player_1_message_matched:
+                aborted = True
+                break
+
+            # check if the turn includes the Player 2 message
+            # in case the turn doesn't include an item and index position 4, it means the game has been aborted
+            if len(turn) < 4:
+                aborted = True
+                break
+
+            # Player 2 message
+            player_2_message = turn[4]['action']['content']
+            episode_request_count += 1
+
+            # check Player 2 message if it matches the instruction => grid
+            match = re.compile(self.player2_response_pattern).match(player_2_message)
+            if match:
+                episode_parsed_request_count += 1
+            else:
+                aborted = True
+                break
+
+        # Episode level logging
+        if aborted:
+            reward = np.nan
+        else:
+            # request success ratio
+            if episode_request_count == 0:
+                request_success_ratio = 0
+            else:
+                request_success_ratio = round(episode_parsed_request_count / float(episode_request_count), 4)
+            reward = request_success_ratio
+        return reward
+
 
     def compute_scores(self, episode_interactions: Dict) -> None:
 

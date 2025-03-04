@@ -41,17 +41,18 @@ class WordleGameMaster(DialogueGameMaster):
         self.success: bool = False
         self.complete_turns: int = 0
 
-    def _on_setup(self, game_id, target_word, target_word_clue, target_word_difficulty):
-        self.game_id = game_id
-        self.target_word = target_word.strip()
-        self.target_word_clue = target_word_clue.strip()
+    def _on_setup(self, **game_instance):
+        self.game_instance = game_instance
+        self.game_id = self.game_instance['game_id']
+        self.target_word = self.game_instance['target_word'].strip()
+        self.target_word_clue = self.game_instance['target_word_clue'].strip()
         self.use_clue = self.config["use_clue"]
         self.use_critic = self.config["use_critic"]
 
         """if self.use_clue:
             if isinstance(self.player_agents[0], Humanagent):
                 logger.info(f"Target word clue: {self.target_word_clue}")"""
-        self.target_word_difficulty = target_word_difficulty.strip()
+        self.target_word_difficulty = self.game_instance['target_word_difficulty'].strip()
 
         self.guessvalidator = GuessValidator(self.target_word)
         self.guess_feedback = {}
@@ -155,6 +156,7 @@ class WordleGameMaster(DialogueGameMaster):
 
         # log all temporary game variables that are needed for evaluation
         self.log_eval_assets()
+        self._on_after_game()
 
     def proceed(self) -> None:
         """Check if the game loop should continue (firstlast specific)."""
@@ -798,6 +800,17 @@ class WordleGameMaster(DialogueGameMaster):
             metrics.METRIC_REQUEST_COUNT_VIOLATED, log_req_counts)
         self.log_key("Evaluation", self.game_result)
 
+    def _on_after_game(self):
+        interactions = self.interactions
+        game_instance = self.game_instance
+        experiment = self.experiment
+        scorer = WordleGameScorer(self.name, experiment, game_instance)
+        reward = scorer.compute_total_reward(interactions)
+        if reward == np.nan:
+            self.share_message(self.game.answerer, "_EPISODE_END_", 'scorer', reward=0, truncation=True)
+        else:
+            self.share_message(self.game.answerer, "_EPISODE_END_", 'scorer', reward=reward, termination=True)
+
 
 class WordleGameScorer(GameScorer):
     def __init__(self, game_name: str, experiment: Dict, game_instance: Dict):
@@ -854,6 +867,17 @@ class WordleGameScorer(GameScorer):
         for key, value in log_scores.items():
             for idx, score in enumerate(value):
                 self.log_turn_score(idx + 1, key, score)
+
+    def compute_total_reward(self, episode_interactions: Dict) -> float:
+        """Compute episode-level and turn-level scores (mandatory)."""
+
+        aborted, loss, success = self._compute_log_game_success(episode_interactions)
+        self._compute_log_request_count(episode_interactions)
+        if aborted:
+            reward = np.nan
+        else:
+            reward = success
+        return reward
 
     def compute_scores(self, episode_interactions: Dict) -> None:
         """Compute episode-level and turn-level scores (mandatory)."""
