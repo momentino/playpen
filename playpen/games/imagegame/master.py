@@ -30,6 +30,8 @@ class ImageGameMaster(DialogueGameMaster):
 
         self.turn_rewards: List = []
 
+        self.prev_f1 = None
+
     def get_description(self) -> str:
         return "Image Game simulation"
 
@@ -47,6 +49,8 @@ class ImageGameMaster(DialogueGameMaster):
         self.add_player(self.game.instruction_giver)
         self.add_player(self.game.instruction_follower)
 
+        self.scorer = ImageGameScorer(self.experiment, game_instance)
+
     def setup(self, **kwargs):
         self._on_setup(**kwargs)
 
@@ -57,15 +61,17 @@ class ImageGameMaster(DialogueGameMaster):
     def play(self) -> None:
         self.reset_agents()
         self.share_message(self.game.instruction_giver, self.game.player_1_prompt_header + '\n' + self.game.target_grid + '\n' + self.game.player_1_question + '\n', 'user')
-        interactions = self.interactions
-        game_instance = self.game_instance
-        experiment = self.experiment
-        scorer = ImageGameScorer(experiment, game_instance)
         while self.game.proceeds():
             logger.info("Game turn: %d", self.game.current_turn)
             self.turn()
-            turn_reward = scorer.compute_turn_reward(interactions, self.game.current_turn-1)
+            f1, turn_reward = self.scorer.compute_turn_reward(self.interactions, self.prev_f1, self.game.current_turn-1)
+            self.prev_f1 = f1
             self.turn_rewards.append(turn_reward)
+            if turn_reward == np.nan:
+                self.share_message(self.game.instruction_follower, "_TURN_END_", 'scorer', reward=np.nan, truncation=True)
+            else:
+                self.share_message(self.game.instruction_follower, "_TURN_END_", 'scorer', reward=turn_reward)
+
         self._on_after_game()
 
     def turn(self):
@@ -184,11 +190,7 @@ class ImageGameMaster(DialogueGameMaster):
         self.game.current_turn += 1
 
     def _on_after_game(self) -> None:
-        interactions = self.interactions
-        game_instance = self.game_instance
-        experiment = self.experiment
-        scorer = ImageGameScorer(experiment, game_instance)
-        reward = scorer.compute_total_reward(interactions)
+        reward = self.scorer.compute_total_reward(self.interactions)
         if reward == np.nan:
             self.share_message(self.game.instruction_follower, "_EPISODE_END_", 'scorer', reward=np.nan, truncation=True)
         else:
@@ -204,7 +206,7 @@ class ImageGameScorer(GameScorer):
         self.player2_response_pattern = r'{}'.format(game_instance["player_2_response_pattern"])
         self.player1_terminate_pattern = r'{}'.format(game_instance["player_1_terminate_pattern"])
 
-    def compute_turn_reward(self, episode_interactions: Dict, turn: int) -> float:
+    def compute_turn_reward(self, episode_interactions: Dict, prev_f1: float,  turn: int) -> (float,float):
         precision, recall, f1 = 0, 0, 0
         # loop over each turn and calculate the metrics for both Player 1 and 2.
         turn_interaction = episode_interactions["turns"][turn]
@@ -215,7 +217,7 @@ class ImageGameScorer(GameScorer):
         # Player generates "DONE"
         match = re.compile(self.player1_terminate_pattern, re.IGNORECASE).match(player_1_message)
         if match:
-            return 0
+            return None, 1
 
         # check the Player 1 message if it matches the rule
         player_1_message_matched = re.compile(self.player1_response_pattern, re.IGNORECASE).match(player_1_message)
@@ -225,7 +227,7 @@ class ImageGameScorer(GameScorer):
                 player_1_message = parsed_instruction
 
         else:
-            return np.nan
+            return None, np.nan
 
         # Player 2 message
         player_2_message = turn_interaction[4]['action']['content']
@@ -233,15 +235,14 @@ class ImageGameScorer(GameScorer):
         # check Player 2 message if it matches the instruction => grid
         match = re.compile(self.player2_response_pattern).match(player_2_message)
         if not match:
-            return np.nan
+            return None, np.nan
 
         try:
             precision, recall, f1 = evaluate(self.target_grid, player_2_message)
         except:
             pass
-        number_of_tokens = len(player_1_message.replace('Instruction:', '').strip().split(' '))
-        reward = (f1-number_of_tokens)/100
-        return reward
+        reward = (f1-prev_f1)/100
+        return f1, reward
 
 
     def compute_total_reward(self, episode_interactions: Dict) -> float:

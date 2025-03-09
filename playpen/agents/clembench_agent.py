@@ -12,7 +12,7 @@ class ClembenchAgent(Agent):
 
     def observe(self, observation, reward, termination, truncation, info):
         if observation['role'] == "scorer":
-            print(reward)
+            pass
         else:
             self.observations.append(observation)
 
