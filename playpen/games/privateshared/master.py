@@ -90,6 +90,8 @@ class PrivateShared(DialogueGameMaster):
         self.add_player(self.game.answerer)
         self.add_player(self.game.questioner)
 
+        self.scorer = PrivateSharedScorer(self.experiment, self.game_instance)
+
     def initiate(self, initial_prompt: str) -> None:
         """Add initial prompt to the dialogue history."""
         #self.messages.append({'role': 'user', 'content': initial_prompt})
@@ -127,11 +129,6 @@ class PrivateShared(DialogueGameMaster):
         return prompt, raw_answer, answer
 
     def play(self) -> None:
-        interactions = self.interactions
-        game_instance = self.game_instance
-        experiment = self.experiment
-        scorer = PrivateSharedScorer(experiment, game_instance)
-
         self.reset_agents()
         self.log_next_turn()
         all_probes = []
@@ -172,12 +169,12 @@ class PrivateShared(DialogueGameMaster):
                 break
 
 
-            reward = scorer.compute_turn_reward(all_probes,self.game.current_turn)
+            reward = self.scorer.compute_turn_reward(all_probes,self.game.current_turn)
             self.turn_rewards.append(reward)
-            """if reward == np.nan:
-                self.share_message(self.game.answerer, "_TURN_END_", 'scorer', reward=0, truncation=True)
+            if reward == np.nan:
+                self.share_message(self.game.answerer, "_TURN_END_", 'scorer', reward=np.nan, truncation=True)
             else:
-                self.share_message(self.game.answerer, "_TURN_END_", 'scorer', reward=reward, termination=True)"""
+                self.share_message(self.game.answerer, "_TURN_END_", 'scorer', reward=reward)
 
         self.log_key('probes', all_probes)
         self.log_key('realised_slots', self.probe_gt)
@@ -437,11 +434,7 @@ class PrivateShared(DialogueGameMaster):
         return game_name == GAME_NAME
 
     def _on_after_game(self) -> None:
-        interactions = self.interactions
-        game_instance = self.game_instance
-        experiment = self.experiment
-        scorer = PrivateSharedScorer(experiment, game_instance)
-        reward = scorer.compute_total_reward(interactions)
+        reward = self.scorer.compute_total_reward(self.interactions)
         if reward == np.nan:
             self.share_message(self.game.answerer, "_EPISODE_END_", 'scorer', reward=np.nan, truncation=True)
         else:
@@ -457,7 +450,7 @@ class PrivateSharedScorer(GameScorer):
     def compute_turn_reward(self, probes: list, turn: int):
         turn_gt, turn_pred = self._get_gold_pred(probes[turn])
         acc = acc_score(turn_gt, turn_pred)
-        return acc/10
+        return acc # /10
 
     def _compute_turn_scores_no_log(self, logs: Dict, turn: int) -> Tuple[List, List]:
         # specific scores

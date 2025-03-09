@@ -13,7 +13,8 @@ class ClembenchAgent(Agent):
     def observe(self, observation, reward, termination, truncation, info):
         if observation['role'] == "scorer":
             print(reward)
-        self.observations.append(observation)
+        else:
+            self.observations.append(observation)
 
     def get_temperature(self):
         return self.model.get_temperature()
