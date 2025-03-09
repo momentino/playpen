@@ -48,6 +48,7 @@ class WordleGameMaster(DialogueGameMaster):
         self.target_word_clue = self.game_instance['target_word_clue'].strip()
         self.use_clue = self.config["use_clue"]
         self.use_critic = self.config["use_critic"]
+        self.turn_rewards = []
 
         """if self.use_clue:
             if isinstance(self.player_agents[0], Humanagent):
@@ -112,6 +113,9 @@ class WordleGameMaster(DialogueGameMaster):
 
         # log any additional keys that will be relevant for evaluation
         self.log_key("n_turns", self.n_turns)
+
+        self.scorer = WordleGameScorer(self.name, self.experiment, self.game_instance)
+
 
     def _on_before_game(self) -> None:
         # add initial prompts to each player's messages
@@ -750,6 +754,8 @@ class WordleGameMaster(DialogueGameMaster):
 
 
         if answer_player_a is None:
+            self.share_message(self.player_a, "_TURN_END_", 'scorer', reward=np.nan, truncation=True)
+            self.turn_rewards.append(np.nan)
             return None
 
         # add A's reply to B's history
@@ -761,6 +767,8 @@ class WordleGameMaster(DialogueGameMaster):
             is_valid_turn = self._check_validity("b", answer_b)
             if not is_valid_turn:
                 # stop game
+                self.share_message(self.player_a, "_TURN_END_", 'scorer', reward=np.nan, truncation=True)
+                self.turn_rewards.append(np.nan)
                 return None
             
             logger.error(f"Valid answer {answer_b} from player b, self.success: {self.success} calling player a")
@@ -774,7 +782,12 @@ class WordleGameMaster(DialogueGameMaster):
             logger.error(f"After parsing, answer from player a is: {answer_player_a}, self.success: {self.success}")
             if answer_player_a is None:
                 logger.error(f"Answer from player a is None, returning, self.success: {self.success}")
+                self.share_message(self.player_a, "_TURN_END_", 'scorer', reward=np.nan, truncation=True)
+                self.turn_rewards.append(np.nan)
                 return None
+        turn_reward = self.scorer.compute_turn_reward(self.game_result, self.violated_request_counts, self.success, self.current_turn-1)
+        self.share_message(self.player_a, "_TURN_END_", 'scorer', reward=turn_reward)
+        self.turn_rewards.append(turn_reward)
         self.complete_turns += 1
 
     def log_eval_assets(self) -> None:
@@ -801,11 +814,7 @@ class WordleGameMaster(DialogueGameMaster):
         self.log_key("Evaluation", self.game_result)
 
     def _on_after_game(self):
-        interactions = self.interactions
-        game_instance = self.game_instance
-        experiment = self.experiment
-        scorer = WordleGameScorer(self.name, experiment, game_instance)
-        reward = scorer.compute_total_reward(interactions)
+        reward = self.scorer.compute_total_reward(self.interactions)
         if reward == np.nan:
             self.share_message(self.player_a, "_EPISODE_END_", 'scorer', reward=np.nan, truncation=True)
         else:
@@ -868,11 +877,29 @@ class WordleGameScorer(GameScorer):
             for idx, score in enumerate(value):
                 self.log_turn_score(idx + 1, key, score)
 
-    def compute_total_reward(self, episode_interactions: Dict) -> float:
-        """Compute episode-level and turn-level scores (mandatory)."""
+    def compute_turn_reward(self,game_results: Dict, violated_request_count: List, success: bool, turn: int) -> float:
+        results = game_results
 
+        # Compute Turn-wise Scores
+        turn_score = [np.nan]
+        turn_strategy_score = [np.nan]
+        if results["guess"]:
+            turn_score = self.cm.turns(results["guess"])
+            # Compute strategy score
+            turn_strategy_score = self.cm.turns_strategy(results["guess"])
+        closeness_score = turn_score[turn]
+        if turn == 0 and success:
+            strategy_score = 100
+        elif turn == 0 and not success:
+            strategy_score = 0
+        else:
+            strategy_score = turn_strategy_score[turn]
+        violated_request_count = violated_request_count[turn+1]
+        reward = (closeness_score/25) + (strategy_score/100) - violated_request_count
+        return reward
+
+    def compute_total_reward(self, episode_interactions: Dict) -> float:
         aborted, loss, success = self._compute_log_game_success(episode_interactions)
-        self._compute_log_request_count(episode_interactions)
         if aborted:
             reward = np.nan
         else:
