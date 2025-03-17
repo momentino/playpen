@@ -12,7 +12,7 @@ dependencies = [
     # Benchmark / Games
     "pyyaml==6.0",  # YAML parsing
     "numpy==1.24.3",  # Score computation
-    "nltk==3.8.1",  # Natural language processing (Taboo)
+    "nltk>=3.8.1",  # Natural language processing (Taboo)
     "spacy==3.7.4",  # NLP for Taboo
     "Levenshtein==0.25.0",  # String distance for reference
     "tiktoken==0.4.0",  # Tokenization for Wordle
