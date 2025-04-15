@@ -24,7 +24,7 @@ dependencies = [
     "tqdm>=4.65.0",
     "nltk>=3.8.1",
     "aleph-alpha-client==7.0.1",
-    "openai==1.52.0",
+    "openai==1.69.0",
     "anthropic==0.47.1",
     "cohere==4.48",
     "google-generativeai==0.8.4",
