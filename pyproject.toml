@@ -24,7 +24,7 @@ dependencies = [
     "tqdm>=4.65.0",
     "nltk>=3.8.1",
     "aleph-alpha-client==7.0.1",
-    "openai==1.12.0",
+    "openai==1.52.0",
     "anthropic==0.47.1",
     "cohere==4.48",
     "google-generativeai==0.8.4",
@@ -36,12 +36,12 @@ dependencies = [
 
 [project.optional-dependencies]
 vllm = [
-    "vllm==0.5.4",
-    "transformers==4.47.0"
+    "vllm==0.8.3",
+    "transformers==4.51.0"
 ]
 huggingface = [
-    "torch==2.1.1",
-    "transformers==4.47.0",
+    "torch==2.6.1",
+    "transformers==4.51.0",
     "sentencepiece==0.1.99",
     "accelerate==1.2.1",
     "einops==0.6.1",
