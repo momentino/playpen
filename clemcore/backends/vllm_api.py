@@ -135,9 +135,9 @@ def load_model(model_spec: backends.ModelSpec) -> Any:
             creds = backends.load_credentials("huggingface")
             api_key = creds["huggingface"]["api_key"]
             # load model:
-            model = LLM(hf_model_str, tensor_parallel_size=number_gpus)
+            model = LLM(hf_model_str, tensor_parallel_size=number_gpus, enable_prefix_caching=True, enable_chunked_prefill=True)
         else:
-            model = LLM(hf_model_str, tensor_parallel_size=number_gpus)
+            model = LLM(hf_model_str, tensor_parallel_size=number_gpus, enable_prefix_caching=True, enable_chunked_prefill=True)
 
     logger.info(f"Finished loading model weights from HuggingFace: {model_spec.model_name}")
     logger.info(f"Number of GPUs used for model: {number_gpus}")
