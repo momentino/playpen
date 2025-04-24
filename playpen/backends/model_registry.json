@@ -585,6 +585,16 @@
       "parameters": "40B"
   },
   {
+      "model_name": "c4ai-command-a-03-2025",
+      "backend": "huggingface_local",
+      "huggingface_id": "CohereLabs/c4ai-command-a-03-2025",
+      "premade_chat_template": true,
+      "eos_to_cull": "<\\|END_OF_TURN_TOKEN\\|>",
+      "release_date": "2023-04-25",
+      "open_weight": true,
+      "parameters": "7B"
+  },
+  {
       "model_name": "oasst-sft-4-pythia-12b-epoch-3.5",
       "backend": "huggingface_local",
       "huggingface_id": "OpenAssistant/oasst-sft-4-pythia-12b-epoch-3.5",
