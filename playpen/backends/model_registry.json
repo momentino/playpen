@@ -814,7 +814,7 @@
       "backend": "huggingface_local",
       "huggingface_id": "microsoft/Phi-4-mini-instruct",
       "premade_chat_template": true,
-      "eos_to_cull": "<|endoftext|>",
+      "eos_to_cull": "<\\|endoftext\\|>",
       "release_date": "2023-04-24",
       "open_weight": true,
       "parameters": "3.8B"
@@ -824,7 +824,7 @@
       "backend": "huggingface_local",
       "huggingface_id": "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
       "premade_chat_template": true,
-      "eos_to_cull": "<｜end▁of▁sentence｜>",
+      "eos_to_cull": "<\\｜end▁of▁sentence\\｜>",
       "release_date": "2023-04-24",
       "open_weight": true,
       "parameters": "3.8B"
@@ -834,7 +834,7 @@
       "backend": "huggingface_local",
       "huggingface_id": "deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
       "premade_chat_template": true,
-      "eos_to_cull": "<｜end▁of▁sentence｜>",
+      "eos_to_cull": "<\\｜end▁of▁sentence\\｜>",
       "release_date": "2023-04-24",
       "open_weight": true,
       "parameters": "3.8B"
@@ -844,7 +844,7 @@
       "backend": "huggingface_local",
       "huggingface_id": "Qwen/QwQ-32B",
       "premade_chat_template": true,
-      "eos_to_cull": "<|im_end|>",
+      "eos_to_cull": "<\\|im_end\\|>",
       "release_date": "2023-04-24",
       "open_weight": true,
       "parameters": "3.8B"
@@ -854,7 +854,7 @@
       "backend": "huggingface_local",
       "huggingface_id": "meta-llama/Llama-4-Scout-17B-16E",
       "premade_chat_template": true,
-      "eos_to_cull": "<|eot|>",
+      "eos_to_cull": "<\\|eot\\|>",
       "release_date": "2023-04-24",
       "open_weight": true,
       "parameters": "3.8B"
