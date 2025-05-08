@@ -814,7 +814,7 @@
       "backend": "huggingface_local",
       "huggingface_id": "microsoft/Phi-4-mini-instruct",
       "premade_chat_template": true,
-      "eos_to_cull": "<\\|endoftext\\|>",
+      "eos_to_cull": "<\\|end\\|>",
       "release_date": "2023-04-24",
       "open_weight": true,
       "parameters": "3.8B"
