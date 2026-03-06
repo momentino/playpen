@@ -19,7 +19,7 @@
   }, {
   "model_name": "smol-135m-sft",
   "backend": "huggingface_local",
-  "huggingface_id": "models/sft/smol-135m/checkpoint-84",
+  "huggingface_id": "models/sft/smol-135m/checkpoint-63",
   "release_date": "2024-09-04",
   "open_weight": true,
   "parameters": "135M",
@@ -34,7 +34,7 @@
     "eos_to_cull": "<\\|im_end\\|>"
   }
 }, {
-  "model_name": "llama3-8b",
+  "model_name": "Llama-3.1-8B-Instruct",
   "backend": "huggingface_local",
   "huggingface_id": "meta-llama/Meta-Llama-3.1-8B-Instruct",
   "release_date": "2024-07-23",
@@ -50,6 +50,25 @@
     "requires_api_key": true,
     "premade_chat_template": true,
     "eos_to_cull": "<\\|eot_id\\|>"
+  }
+},{
+  "model_name": "Llama-3.1-8B-Instruct-4bit",
+  "backend": "huggingface_local",
+  "huggingface_id": "meta-llama/Meta-Llama-3.1-8B-Instruct",
+  "release_date": "2024-07-23",
+  "open_weight": true,
+  "parameters": "8B",
+  "languages": ["en", "de", "fr", "it", "pt", "hi", "es", "th"],
+  "context_size": "128k",
+  "license": {
+    "name": "Meta",
+    "url": "https://github.com/meta-llama/llama-models/blob/main/models/llama3_1/LICENSE"
+  },
+  "model_config": {
+    "requires_api_key": true,
+    "premade_chat_template": true,
+    "eos_to_cull": "<\\|eot_id\\|>",
+    "load_in_4bit": true
   }
 }, {
   "model_name": "llama3-8b-sft",

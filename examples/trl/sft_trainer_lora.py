@@ -1,20 +1,19 @@
-from clemcore.backends.huggingface_local_api import HuggingfaceLocalModel
-from clemcore.clemgame import GameRegistry
-
 import trl
 from peft import LoraConfig
 from datasets import load_dataset
 
-from playpen import BasePlayPen
+from clemcore.backends.huggingface_local_api import HuggingfaceLocalModel
+from clemcore.clemgame import GameRegistry
 
+from playpen import BasePlaypenTrainer
 
-class PeftSftTrainer(BasePlayPen):
+class PeftSftTrainer(BasePlaypenTrainer):
 
     def __init__(self, learner: HuggingfaceLocalModel):
         super().__init__(learner)
         # Note: We configure the proper chat template for the tokenizer already during model loading in the backend
 
-    def learn(self, game_registry: GameRegistry):
+    def learn(self):
         # Load a conversational dataset for SFT, that is, a list of "messages" -- basically tuples of role and content.
         # The role can be "user" or "assistant" and typically alternates within the list.
         # During training, everything up to the last assistant message becomes the prefix for prediction.
@@ -32,8 +31,10 @@ class PeftSftTrainer(BasePlayPen):
         # Initialize training configuration
         config = trl.SFTConfig(  # inherits TrainingArguments
             max_length=300,
-            output_dir=f"models/sft+lora/{self.learner.get_name()}",
-            eval_strategy="epoch"
+            output_dir=f"models/sft+lora/{self.learner.name}",
+            eval_strategy="epoch",
+            packing=False,
+            completion_only_loss=True
         )
 
         # Initialize trainer context

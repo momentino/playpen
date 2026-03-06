@@ -1,10 +1,10 @@
 import abc
 
 from clemcore.backends import Model, BatchGenerativeModel
-from clemcore.clemgame import GameRegistry, Player
+from clemcore.clemgame import Player
 
 
-class BasePlayPen(abc.ABC):
+class BasePlaypenTrainer(abc.ABC):
 
     def __init__(self, learner: Model | BatchGenerativeModel, teacher: Model | BatchGenerativeModel = None):
         self.learner = learner
@@ -17,5 +17,5 @@ class BasePlayPen(abc.ABC):
         return player.model is self.teacher
 
     @abc.abstractmethod
-    def learn(self, game_registry: GameRegistry):
+    def learn(self):
         pass
