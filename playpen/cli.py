@@ -2,22 +2,25 @@ import argparse
 import inspect
 import importlib.util as importlib_util
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Dict
 from datetime import datetime
 
+logger = logging.getLogger("playpen.cli")
+
 import clemcore.cli as clem
 from clemcore.backends import ModelSpec, ModelRegistry, BackendRegistry
 from clemcore.clemgame import GameRegistry, GameSpec
-from playpen import BasePlayPen, to_sub_selector
+from playpen import BasePlaypenTrainer, to_sub_selector
 
 
 def train(file_path: str, learner: ModelSpec, teacher: ModelSpec, temperature: float, max_tokens: int):
     def is_playpen(obj):
         return (inspect.isclass(obj)
-                and issubclass(obj, BasePlayPen)
-                and obj is not BasePlayPen
+                and issubclass(obj, BasePlaypenTrainer)
+                and obj is not BasePlaypenTrainer
                 and obj.__module__ == module.__name__  # defined in this file
                 )
 
@@ -28,22 +31,22 @@ def train(file_path: str, learner: ModelSpec, teacher: ModelSpec, temperature: f
         spec.loader.exec_module(module)
         playpen_subclasses = inspect.getmembers(module, predicate=is_playpen)
         if len(playpen_subclasses) == 0:
-            raise ValueError(f"Cannot load playpen trainer, because no BasePlayPen found in {file_path}.\n"
-                             f"Make sure that you have implemented a subclass of BasePlayPen and try again.")
+            raise ValueError(f"Cannot load the requested trainer, because no class inheriting from BasePlaypenTrainer found in {file_path}.\n"
+                             f"Make sure that you have implemented a subclass of BasePlaypenTrainer and try again.")
         _, playpen_cls = playpen_subclasses[0]
     except Exception as e:
         raise RuntimeError(f"Cannot load playpen trainer, because {e}")
 
-    game_registry = GameRegistry.from_directories_and_cwd_files()
+    #game_registry = GameRegistry.from_directories_and_cwd_files()
     model_registry = ModelRegistry.from_packaged_and_cwd_files()
 
     learner_spec = model_registry.get_first_model_spec_that_unify_with(learner)
-    print(f"Found registered model spec that unifies with {learner.to_string()} -> {learner_spec}")
+    logger.info(f"Found registered model spec that unifies with {learner.to_string()} -> {learner_spec}")
 
     model_specs = [learner_spec]
     if teacher is not None:
         teacher_spec = model_registry.get_first_model_spec_that_unify_with(teacher)
-        print(f"Found registered model spec that unifies with {teacher.to_string()} -> {teacher_spec}")
+        logger.info(f"Found registered model spec that unifies with {teacher.to_string()} -> {teacher_spec}")
         model_specs.append(teacher_spec)
 
     backend_registry = BackendRegistry.from_packaged_and_cwd_files()
@@ -51,38 +54,38 @@ def train(file_path: str, learner: ModelSpec, teacher: ModelSpec, temperature: f
         backend_selector = model_spec.backend
         if not backend_registry.is_supported(backend_selector):
             raise ValueError(f"Specified model backend '{backend_selector}' not found in backend registry.")
-        print(f"Found registry entry for backend {backend_selector} "
-              f"-> {backend_registry.get_first_file_matching(backend_selector)}")
+        logger.info(f"Found registry entry for backend {backend_selector} "
+                    f"-> {backend_registry.get_first_file_matching(backend_selector)}")
 
     models = []
     for model_spec in model_specs:  # only now since model loading might take long
-        print(f"Dynamically import backend {model_spec.backend}")
+        logger.info(f"Dynamically import backend {model_spec.backend}")
         backend = backend_registry.get_backend_for(model_spec.backend)
         model = backend.get_model_for(model_spec)
         model.set_gen_args(max_tokens=max_tokens, temperature=temperature)
-        print(f"Successfully loaded {model_spec.model_name} model")
+        logger.info(f"Successfully loaded {model_spec.model_name} model")
         models.append(model)
 
     learner_model = models[0]
     if len(models) == 1:
-        playpen_cls(learner_model).learn(game_registry)
+        playpen_cls(learner_model).learn()
     else:
         teacher_model = models[1]
-        playpen_cls(learner_model, teacher_model).learn(game_registry)
+        playpen_cls(learner_model, teacher_model).learn()
 
 
 def store_eval_score(file_path: Path, name: str, value):
     try:  # first, try to load file to not overwrite already written eval scores
         with open(file_path, "r", encoding="utf-8") as f:
             scores = json.load(f)
-        print(f"Update {file_path}")
+        logger.info(f"Update {file_path}")
     except FileNotFoundError:
-        print(f"Create {file_path}")
+        logger.info(f"Create {file_path}")
         scores = {}
     new_scores = {**scores, **{name: value}}
     with open(file_path, "w", encoding="utf-8") as f:
         json.dump(new_scores, f)
-    print(json.dumps(new_scores, indent=2))
+    logger.info(json.dumps(new_scores, indent=2))
     return new_scores
 
 
@@ -101,9 +104,13 @@ def evaluate_suite(suite: str, model_spec: ModelSpec, gen_args: Dict, results_di
         dataset = load_dataset("colab-potsdam/playpen-data", dataset_name, split="validation")
         clem.run(game_selector, [model_spec],
                  gen_args=gen_args, results_dir_path=suite_results_dir, sub_selector=to_sub_selector(dataset))
+
     clem.score(game_selector, str(suite_results_dir))
     clem.transcripts(game_selector, str(suite_results_dir))
-    df = clem.clemeval.perform_evaluation(str(suite_results_dir), return_dataframe=True)
+    try:
+        df = clem.clemeval.perform_evaluation(str(suite_results_dir), return_dataframe=True)
+    except:
+        raise ValueError("Impossible generating the result reports for your run. Check whether the requested task is part of this suite or the clembench.log file for issues caused by clemcore.")
     clem_score = df["-, clemscore"][0]
     return clem_score
 
@@ -111,6 +118,25 @@ def evaluate_suite(suite: str, model_spec: ModelSpec, gen_args: Dict, results_di
 def evaluate(suite: str, model_spec: ModelSpec, gen_args: Dict, results_dir: Path, game_selector: str,
              skip_gameplay: bool):
     overall_results_file = results_dir / f"{model_spec.model_name}.val.json"
+    if suite is None and game_selector not in ["{'benchmark':['2.0']}","{'benchmark':['static_1.0']}"]:
+        raise ValueError("No suite specified! Specify a suite among the available options (clem, static, all). In case of clem or static suites, you may also specify a game name in order to evaluate on a single benchmark instead of the entire suite.")
+    elif suite is None and game_selector in ["{'benchmark':['2.0']}","{'benchmark':['static_1.0']}"]:
+        suite = "clem" if game_selector == "{'benchmark':['2.0']}" else "static"
+        game_selector = None
+        logger.info(f"Game Selector `{game_selector}` found. Setting the suite to '{suite}'.")
+    elif suite is not None and game_selector is None:
+        logger.info(f"Suite {suite} selected for the evaluation.")
+    elif suite is not None and game_selector is not None:
+        if suite == "all":
+            logger.warning("The selected suite is `all`. Ignoring any eventual game specified under the `-g` argument.")
+            game_selector = None
+        elif game_selector in ["{'benchmark':['2.0']}","{'benchmark':['static_1.0']}"]:
+            logger.warning(f"You have both set suite {suite} and game selector {game_selector}, however this game selector is an alias for a suite! Ignoring game selector. Please either set the suite to None or change the game selector if this was not your intended behaviour.")
+            game_selector = None
+        else:
+            logger.info(f"Suite `{suite}` and game selector `{game_selector}` selected.")
+
+
     if suite in ["all", "clem"]:
         dataset_name = None if skip_gameplay else "instances"
         _game_selector = GameSpec.from_dict({"benchmark": ["2.0"]}, allow_underspecified=True) \
@@ -124,7 +150,6 @@ def evaluate(suite: str, model_spec: ModelSpec, gen_args: Dict, results_dir: Pat
         stat_score = evaluate_suite("static", model_spec, gen_args, results_dir, _game_selector, dataset_name)
         store_eval_score(overall_results_file, "statscore", stat_score)
 
-
 def cli(args: argparse.Namespace):
     if args.command_name == "list":
         if args.mode == "games":
@@ -134,7 +159,7 @@ def cli(args: argparse.Namespace):
         elif args.mode == "backends":
             clem.list_backends(args.verbose)
         else:
-            print(f"Cannot list {args.mode}. Choose an option documented at 'list -h'.")
+            logger.warning(f"Cannot list {args.mode}. Choose an option documented at 'list -h'.")
     if args.command_name == "run":
         learner_spec = ModelSpec.from_string(args.learner)
         teacher_spec = ModelSpec.from_string(args.teacher) if args.teacher is not None else None
@@ -179,7 +204,7 @@ def main():
                                          description="Run the playpen eval pipelines to compute clem- and statscore.")
     eval_parser.add_argument("model", type=str,
                              help="The model name of the model to be evaluated (as listed by 'playpen list models').")
-    eval_parser.add_argument("--suite", choices=["clem", "static", "all"], default="all",
+    eval_parser.add_argument("--suite", choices=["clem", "static", "all"], default='all',
                              nargs="?", type=str,
                              help="(Optional) Suite selector for the eval run."
                                   " Default: all")

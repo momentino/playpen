@@ -18,14 +18,14 @@ from typing import List, Callable
 
 from playpen.callbacks.buffers import EpisodeBufferCallback, BranchingEpisodeBufferCallback
 from playpen.buffers import EpisodeBuffer, BranchingEpisodeBuffer
-from playpen.base import BasePlayPen
+from playpen.base import BasePlaypenTrainer
 
 __all__ = [
     "EpisodeBuffer",
     "EpisodeBufferCallback",
     "BranchingEpisodeBuffer",
     "BranchingEpisodeBufferCallback",
-    "BasePlayPen",
+    "BasePlaypenTrainer",
     "to_sub_selector"
 ]
 
