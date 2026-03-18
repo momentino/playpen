@@ -1,12 +1,11 @@
 ![Playpen Logo](./playpen-logo.png)
 
-All you need to get started with the LM Playpen Environment for Learning in Interaction.
+The Playpen is an extension of the [clemcore](https://github.com/clp-research/clemcore) framework. It contains everything you need to get started **training** and **evaluating** models in - or from - interaction.
 
-The training code for our [EMNLP paper](https://arxiv.org/abs/2504.08590) can be found [here](https://github.com/lm-playpen/playpen-paper-2025).
+It was introduced in our [EMNLP 2025 paper](https://arxiv.org/abs/2504.08590). The code for the experiments in the paper can be found [here](https://github.com/lm-playpen/playpen-paper-2025).
 
-# Get Started [Here](https://github.com/lm-playpen/playpen/docs/PLAYSCHOOL_2026_get_started.md) for the LM Playschool Challenge @ EMNLP 2026
-
-## Set up the playpen workspace
+# Get Started
+## Set up the workspace
 
 Clone the repository and switch into the workspace.
 ```bash
@@ -18,76 +17,139 @@ Set up the Python environment. Note: Playpen requires Python 3.10+.
 python -m venv venv --system-site-packages && source venv/bin/activate
 ```
 
-Install the clemcore framework to run games, backends and models.
-Note: The `huggingface` extra is (only) necessary to train with local hf models.
+Install the requirements, which include the [clemcore](https://github.com/clp-research/clemcore) framework and the libraries to train and evaluate Huggingface models.
 ```bash
-pip install clemcore[huggingface]==2.4.0
+pip install -e .
 ```
 
-Make playpen available via CLI and install TRL enable running the examples.
-```bash
-pip install '.[trl]'
-```
-
-Make the clembench games, e.g. taboo, available for learning.
-For this, clone the clembench repository to a directory of your choice.
+Import then the [clembench](https://github.com/clp-research/clembench) repository in a directory of your choice and install its requirements. This will make the game environments available for training and evaluation.
 ```bash
 git clone https://github.com/clp-research/clembench
+pip install -r your/path/to/clembench/requirements.txt
 ```
 
-Furthermore, we must install the clembench game requirements in our venv so that all games can be run properly:
-```bash
-pip install your/path/to/clembench/requirements.txt
+In case the _clembench_ repository ha been cloned inside of the Playpen project root, games will be discovered automatically.
+In case the cloning has been performed elsewhere, rename the file `game_registry.json.template` contained in the Playpen project root into `game_registry.json` and edit it to point to the _clembench_ path.
+
+The file should be structured as follows:
+```json
+[
+  {
+    "benchmark_path": "your/path/to/clembench"
+  }
+]
 ```
 
-
-Then, back in you playpen workspace, copy the `game_registry.json.template` to `game_registry.json` so that the `clem` CLI can find it in the current working directory.
-Set the path to the directory which contains the clembench repository.
-The following command has a similar effect:
-```bash
-echo '[{"benchmark_path": "your/path/to/clembench"}]' > game_registry.json
-```
-
-> **Note:** Adding the game registry file is not necessary,
-> when you clone the clembench repository directly in your playpen workspace.
-> In this case the clem CLI can directly find the games by looking into sub-directories.
-
-In any case, check that games are available via:
+To verify which games are available use:
 ```bash
 clem list games
 ```
 
-Now having everything set up, you can follow the experiment guide or jump to the [TLDR](#tldr) section for a quick overview.
+If you are interested in running the provided training examples, you should install TRL.
+```bash
+pip install '.[trl]'
+```
 
-## Evaluate a model
+Now that everything is set up, you may follow the next steps to enter deeper into how to train and evaluate a model.
+# Evaluate a model
+## model_registry.json
+In order to evaluate a model, the first thing we have to do is to register it into the `model_registry.json` file contained within this repository.
+Mind that there is a file with the same name within the cloned _clembench_ folder. You may ignore that one.
 
+Here is an example of model registry's entry for the Llama-3.1-Instruct model from Huggingface:
+```json
+{
+  "model_name": "Llama-3.1-8B-Instruct",
+  "backend": "huggingface_local",
+  "huggingface_id": "meta-llama/Meta-Llama-3.1-8B-Instruct",
+  "release_date": "2024-07-23",
+  "open_weight": true,
+  "parameters": "8B",
+  "languages": ["en", "de", "fr", "it", "pt", "hi", "es", "th"],
+  "context_size": "128k",
+  "license": {
+    "name": "Meta",
+    "url": "https://github.com/meta-llama/llama-models/blob/main/models/llama3_1/LICENSE"
+  },
+  "model_config": {
+    "requires_api_key": true,
+    "premade_chat_template": true,
+    "eos_to_cull": "<\\|eot_id\\|>"
+  }
+}
+```
+Here we are specifying fundamental information to help the engine to detect your model.
+Most importantly, we are specifying a `model_name` for our model, the backend (in our case it is huggingface, indicated as `huggingface_local`) and the Huggingface model ID.
+We are also specifying generation settings indicating whether a chat template associated to the model already exists (`premade_chat_template`: true), and the EOS token.
+
+Note that specifying this character is of fundamental importance for the correct functioning of the benchmark.  
+We also specify whether access to the model is gated and an API key is required under `requires_api_key`.
+
+Further details regarding the other fields of a model entry are available in the [official documentation](https://github.com/clp-research/clemcore/blob/main/docs/model_backend_registry_readme.md).
+## Registering an API key
+There are two ways to register an API key. The first is within your environment as an environment variable. The second is within a file named `key.json`.
+For the second case, copy or rename the file called `key.json.template` contained within the project's folder.
+You may notice that there are several entries with the names of popular providers.
+In the case you are interested in running Huggingface models, insert your key under `huggingface`:
+```json
+{
+  ...
+  "huggingface": {
+    "api_key": "YOUR_API_KEY"
+  },
+  ...
+ }
+```
+The mechanism is equivalent for other providers.
+## Finally, the evaluation
 To evaluate a model's gameplay performance on the `playpen-data` validation split, run the following command:
 
 ```bash
 playpen eval <model-name>
 ```
 
-where `<model-name>` should match your model's name as specified in the model registry.
+where `<model-name>` should match your model's name as specified in the model registry. Connecting to the example above,
+```bash
+playpen eval Llama-3.1-8B-Instruct
+```
 
-This will produce a `<model-name>.val.json` file which contains two numbers:
+This operation will produce a `<model-name>.val.json` file which contains two values:
 
 1. **clemscore**: the average gameplay performance on the interactive benchmark games
 2. **statscore**: the average performance on the static benchmark datasets
 
 The file is by default located in a `playpen-eval/<timestamp>` folder.
-If you need to run the evaluation again for specific games, e.g., for wordle, you can use the `-g` and `-r` options of the eval command, as follows:
+
+Eventually, it is also possible to perform the evaluation separately on interactive and static benchmarks, or on single games.
+
+To evaluate your model only on interactive games, run:
 ```bash
-playpen eval llama3-8b -g wordle_withcritic -r playpen-eval/2025-07-04T09-37-23/
+playpen eval Llama-3.1-8B-Instruct --suite clem
 ```
-This will replace the results for the game in the already existing timestamp folder and re-compute the scores.
-
-You can also skip the gameplay and only re-compute the scores, if needed, by using `--skip_gameplay`, so that:
-
+For static benchmarks:
 ```bash
-playpen eval llama3-8b --skip_gameplay -r playpen-eval/2025-07-04T09-37-23/
+playpen eval Llama-3.1-8B-Instruct --suite static
 ```
 
-# Examples
+If you need to run the evaluation for specific games, e.g., for wordle, you can use the `-g` option of the eval command as follows:
+```bash
+playpen eval Llama-3.1-8B-Instruct -g wordle 
+```
+
+You may also eventually rescore episodes contained in a specific folder by indicating the folder under `-r` and setting `--skip-gameplay` to avoid rerunning the games from scratch:
+```bash
+playpen eval Llama-3.1-8B-Instruct --skip_gameplay -r playpen-eval/2026-03-05T09-37-23/
+```
+The existing scores will be overwritten.
+# Train a model
+
+The Playpen does not make many assumptions over the libraries or logic you will implement for training your models.
+This means that you may implement your own training script as you see fit, and use either supervised fine-tuning or RL approaches.
+The only constraint is that you have to inherit from the `BasePlaypenTrainer` class, which is the interface all training scripts are expected to follow.
+It is defined [here](https://github.com/lm-playpen/playpen/blob/main/playpen/base.py) and it has a very simple structure.
+It takes as arguments a `learner` model (i.e. the model to fine-tune) and optionally a `teacher` which may be helpful in an RL setup.
+
+You may find all our examples in the [examples](https://github.com/lm-playpen/playpen/tree/main/examples) folder.
 
 ## Supervised Finetuning
 
@@ -95,32 +157,33 @@ Supervised fine-tuning (SFT) is known to help learning in interaction as it shif
 
 In the context of clembench this means to let the model observe patterns of interaction which occur in various dialogue games.
 
-### Running the SFT example with local HF models
+### Training an Huggingface local model in the Playpen via TRL using Supervised Finetuning
 
-Now we are ready to run the simple SFT TRL trainer example with a `smol-135m` learner (`-l`).
-Since the interactions were already performed by other models, we do not need a teacher model in this case.
-The following commands runs the example training pipeline:
+Let's then run the basic trainer defined at `examples/trl/sft_trainer_simple.py` using the `Llama-3.1-8B-Instruct` model as a learning agent.
+You may substitute this model with one of your choice.
+
 ```bash
-playpen run examples/trl/sft_trainer_simple.py -l smol-135m 
+playpen run examples/trl/sft_trainer_simple.py -l Llama-3.1-8B-Instruct 
 ```
+> **Note:** a learning agent is defined using the argument -l <model_name>, with the <model_name> taken from the `model_registry.json` file.
 
 The `playpen` CLI properly loads the huggingface model and runs the trainer code in the specified file.
-When the command finished successfully, then there will be a `models/sft/smol-135m` directory
-containing a checkpoint folder, e.g. `checkpoint-84` with the updated parameters of the model.
+After the execution is completed successfully, a directory named `models/sft/Llama-3.1-8B-Instruct` will appear
+containing a sub-folder, e.g. `checkpoint-84` with the updated parameters of the model.
 
-> **Note:** The example trainer will use the interactions of the train split available at the [playpen-data](https://huggingface.co/datasets/colab-potsdam/playpen-data) repository.
-> Have a look at `examples/trl/sft_trainer_simple.py` for implementation details.
+> **Note:** The trainer in the example above uses as a training set the train split available at the [playpen-data](https://huggingface.co/datasets/colab-potsdam/playpen-data/viewer/interactions) repository containing dialogues obtained from models playing the games available in the version 2.0 of clembench.
+> You may check the `examples/trl/sft_trainer_simple.py` source code for more implementation details.
 
 ### Evaluate the fine-tuned model
 
-To evaluate the effectiveness of our SFT approach, we run the trained model again on the clembench.
-For this, we first register our trained model in our local `model_registry.json`
-by adding an entry that points to the checkpoint folder:
+To evaluate the effectiveness of our SFT approach, we can now run the trained model again on the clembench.
+As we have seen above, we will have first to create a new entry for our model in our local `model_registry.json` file pointing to the checkpoint folder generated by the training script.
+
 ```json
 {
-  "model_name": "smol-135m-sft",
+  "model_name": "Llama-3.1-8B-Instruct-sft",
   "backend": "huggingface_local",
-  "huggingface_id": "models/sft/smol-135m/checkpoint-84",
+  "huggingface_id": "models/sft/Llama-3.1-8B-Instruct/checkpoint-84",
   "release_date": "2024-09-04",
   "open_weight": true,
   "parameters": "135M",
@@ -136,52 +199,36 @@ by adding an entry that points to the checkpoint folder:
   }
 }
 ```
+> **Note:** under 'huggingface_id' it is possible to specify the ID of a model from the Huggingface Hub rather than its local folder.
 
-Then we can run the benchmark again, but this time with `-m smol-135m-sft`:
+After this, we can run the benchmark, but this time specifying as model name that of our model:
 ```bash
-clem run -g "{'benchmark':['2.0']}" -m smol-135m-sft
+playpen eval Llama-3.1-8B-Instruct-sft
 ```
 
-> **Note:** We choose `smol-135m` only to showcase the workflow. For real training you should more capable models e.g. `llama3-8b`.
-> You can look up baseline performances of other models on the leaderboard: https://clembench.github.io/leaderboard.html.
+> **Note:** You can look up baseline performances of other models on the leaderboard: https://clembench.github.io/leaderboard.html.
 
-### Parameter Efficient Fine-tuning (PEFT)
+## Parameter Efficient Fine-tuning (PEFT)
 
-More capable models like `llama3-8b` usually do not fit into the RAM of a single GPU during training.
-A common technique to circumvent this, is a technique called low-rank adapters (LoRA)
-where only a smaller set of parameters (adapters) is trained to improve the model's performance.
-To make use of the LoRA support in TRL, we have to install the `peft` package
-and provide the trainer with the following additional configuration argument:
-```python
-trainer = trl.SFTTrainer(
-    peft_config=LoraConfig(
-        r=16, lora_alpha=32,
-        lora_dropout=0.05,
-        target_modules="all-linear",
-        modules_to_save=["lm_head", "embed_token"],
-        task_type="CAUSAL_LM",
-    )
-)
-```
+One of the approaches you may use to train your model when under computational constraints is that of using Parameter-Efficient Fine-tuning strategies such as LoRA.
+We show you how to do it in Playpen using TRL and Llama-3.1-8B-Instruct as model with [this](https://github.com/lm-playpen/playpen/blob/main/examples/trl/sft_trainer_lora.py) example.
 
-Now we are ready to run the LoRA SFT TRL trainer example with a `llama3-8b` learner (`-l`).
-Since the interactions were already performed by other models, we do not need a teacher model in this case.
-The following commands runs the example training pipeline:
+You may notice that it is virtually equivalent to that introduced in the previous section, with the only difference in the specific settings for PEFT added to the TRL's SFTTrainer Object.
+
+Similarly to above we may run the training, this time specifying a different training script and model for our new use-case.
 ```bash
-playpen run examples/trl/sft_trainer_lora.py -l llama3-8b 
+playpen run examples/trl/sft_trainer_lora.py -l Llama-3.1-8B-Instruct 
 ```
 
 The `playpen` CLI properly loads the huggingface model and runs the trainer code in the specified file.
-When the command finished successfully, then there will be a `models/sft+lora/llama3-8b` directory
-containing a checkpoint folder, e.g. `checkpoint-78` **containing only the adapter parameters**.
-
-> **Note:** Have a look at `examples/trl/sft_trainer_lora.py` for implementation details.
+When the command finished successfully, then there will be a `models/sft+lora/Llama-3.1-8B-Instruct` directory
+containing a checkpoint folder, e.g. `checkpoint-78` **containing only the adapter's parameters**.
 
 To evaluate the LoRA fine-tuned model we register it in the local `modal_registry.json`,
-especially pointing to a `peft_model` in the `model_config`, as follows:
+especially indicating the base model on top of which to put the trained adapters under `peft_model` in the `model_config` as follows:
 ```json
 {
-  "model_name": "llama3-8b-sft",
+  "model_name": "Llama-3.1-8B-Instruct-sft-lora",
   "backend": "huggingface_local",
   "huggingface_id": "meta-llama/Meta-Llama-3.1-8B-Instruct",
   "release_date": "2024-07-23",
@@ -201,18 +248,20 @@ especially pointing to a `peft_model` in the `model_config`, as follows:
   }
 }
 ```
-
-With this addition to the local model registry, `clem` is able to load the peft model properly, when we run the benchmark:
-```bash
-clem run -g "{'benchmark':['2.0']}" -m llama3-8b-sft
-```
-
-> **Note:** This essentially evaluates the model on the same instances of gameplay that were seen during training. To properly measure generalization performance, you should use different (or create new) instances.
-
-> **Note:** If you want to train quantized models, then you can simply add `load_in_8bit: True` or `load_in_4bit: True`
+> **Note:** If you want to evaluate quantized models, then you can simply add `load_in_8bit: true` or `load_in_4bit: true`
 > in the model_config section of the model spec. Alternatively, you can also directly load a quantized model from the
 > huggingface hub by specifying the according huggingface_id.
 
+Now we run the usual command for running the evaluation:
+```bash
+playpen eval Llama-3.1-8B-Instruct-sft-lora
+```
+
+## Reinforcement Learning
+
+
+
+# FOLLOWING SECTIONS TO BE REVIEWED - IGNORE FOR NOW
 ## Learning in Interaction (not yet available)
 
 Having an SFT model ready, we can now turn to more interactive training algorithms.
