@@ -13,12 +13,12 @@ authors = [
     { name = "Philipp Sadler", email = "first.last@uni-potsdam.de" }
 ]
 dependencies = [
-    "clemcore==3.5.0",
-    "clemcore[huggingface]==3.5.0",
+    "clemcore==3.6.2",
 ]
 
 [project.optional-dependencies]
-trl = [
+huggingface = [
+    "clemcore[huggingface]==3.6.2",
     "trl==0.29.0"
 ]
 
