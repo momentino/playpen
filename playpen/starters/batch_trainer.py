@@ -2,26 +2,20 @@ import time
 from pathlib import Path
 
 from clemcore.backends import Model
-from clemcore.clemgame import GameRegistry, GameInstanceIterator, GameBenchmarkCallbackList, GameBenchmark, \
-    InstanceFileSaver, ExperimentFileSaver, InteractionsFileSaver
+from clemcore.clemgame import GameInstanceIterator, GameBenchmarkCallbackList, GameBenchmark, \
+    InstanceFileSaver, ExperimentFileSaver, InteractionsFileSaver, EpochResultsFolder, EpochResultsFolderCallback
 from clemcore.clemgame.runners import batchwise
-from playpen import BasePlayPen, to_sub_selector
-from datasets import load_dataset
+from playpen import BasePlaypenTrainer, to_sub_selector
+from clemdatasets import ClemDatasetv2
 
 from playpen.buffers import EpisodeBuffer
 from playpen.callbacks.buffers import EpisodeBufferCallback
-from playpen.callbacks.files import EpochResultsFolder, EpochResultsFolderCallback
 
 
-class BatchwisePlayPenTrainer(BasePlayPen):
+class BatchwisePlaypenTrainer(BasePlaypenTrainer):
 
-    def __init__(self, learner: Model, teacher: Model):
-        """Showcase using the game of Taboo, which requires two players.
-        Therefore, the learner is supposed to be accompanied by a teacher.
-
-        However, in contract to clembench, the roles played by each model are to be decided programmatically.
-        This means that the results folder structure does not necessarily show which model played which role.
-
+    def __init__(self, num_epochs: int, learner: Model, teacher: Model = None):
+        """
         Note:
             Both models will always be loaded into memory, even if they are the same.
             This is intentional: While we want to adjust the learner's parameters,
@@ -33,11 +27,15 @@ class BatchwisePlayPenTrainer(BasePlayPen):
         """
         super().__init__(learner, teacher)
         self.batch_size = 8
-        self.num_epochs = 4
+        self.num_epochs = num_epochs
+        player_models = [learner]
+        if teacher is not None:
+            player_models.append(teacher)
         self.episode_buffer = EpisodeBuffer()
         # setup callbacks for the clem benchmark run
-        results_folder = EpochResultsFolder(Path("playpen-records"), [learner, teacher])
-        model_infos = Model.to_infos([learner, teacher])
+        run_dir = f"{learner}" if teacher is None else f"{learner}-{teacher}"
+        results_folder = EpochResultsFolder(Path("playpen-records"), run_dir)
+        model_infos = Model.to_infos(player_models)
         self.callbacks = GameBenchmarkCallbackList([
             # a callback to collect episodes into the buffer during the benchmark run
             EpisodeBufferCallback(self.episode_buffer),
@@ -46,21 +44,21 @@ class BatchwisePlayPenTrainer(BasePlayPen):
             # a callback to save the instance.json using the epoch result folder structure
             InstanceFileSaver(results_folder),
             # a callback to save the experiment.json using the epoch result folder structure
-            ExperimentFileSaver(results_folder, model_infos),
+            ExperimentFileSaver(results_folder=results_folder, player_model_infos=model_infos),
             # a callback to save the interactions.json and requests.json using the epoch result folder structure
-            InteractionsFileSaver(results_folder, model_infos)
+            InteractionsFileSaver(results_folder=results_folder, player_model_infos=model_infos)
         ])
 
-    def learn(self, game_registry: GameRegistry):
-        # We use the taboo game to showcase the basic playpen flow
-        game_spec = game_registry.get_game_specs_that_unify_with("taboo")[0]
+    def learn(self):
+        game_registry = self.get_game_registry()
+        game_specs = game_registry.get_game_specs_that_unify_with("all", verbose=False)
 
         # We only use the training instances so that we can properly evaluate on the validation set later
-        dataset = load_dataset("colab-potsdam/playpen-data", "instances", split="train")
-        game_instance_iterator = GameInstanceIterator.from_game_spec(game_spec, sub_selector=to_sub_selector(dataset))
+        dataset = ClemDatasetv2("instances", split="train").dataset.train_test_split(0.2, shuffle=True, seed=42)
+        game_instance_iterator = GameInstanceIterator.from_game_spec(game_specs, sub_selector=to_sub_selector(dataset))
 
         # We initialize the game benchmark which creates the game master for each game instance
-        with GameBenchmark.load_from_spec(game_spec) as game_benchmark:
+        with GameBenchmark.load_from_spec(game_specs) as game_benchmark:
             # We run as many epochs over all game instances as specified
             for epoch in range(self.num_epochs):
                 # We collect the episodes using the batchwise runner from clemcore

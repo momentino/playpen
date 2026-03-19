@@ -2,27 +2,22 @@ import time
 from pathlib import Path
 
 from clemcore.backends import Model
-from clemcore.clemgame import GameRegistry, GameInstanceIterator, GameBenchmarkCallbackList, GameBenchmark, \
-    InstanceFileSaver, ExperimentFileSaver
+from clemcore.clemgame import GameInstanceIterator, GameBenchmarkCallbackList, GameBenchmark, \
+    InstanceFileSaver, ExperimentFileSaver, EpochResultsFolder, EpochResultsFolderCallback
 from clemcore.clemgame.runners import sequential
-from playpen import BasePlayPen, to_sub_selector
-from datasets import load_dataset
+from playpen import BasePlaypenTrainer, to_sub_selector
+from clemdatasets import ClemDatasetv2
 
 from playpen.branching.master import BranchingGameBenchmark
 from playpen.buffers import BranchingEpisodeBuffer
 from playpen.callbacks.buffers import BranchingEpisodeBufferCallback
-from playpen.callbacks.files import EpochResultsFolder, EpochResultsFolderCallback, BranchingInteractionsFileSaver
+from playpen.callbacks.files import BranchingInteractionsFileSaver
 
 
-class BranchingPlayPenTrainer(BasePlayPen):
+class BranchingPlaypenTrainer(BasePlaypenTrainer):
 
-    def __init__(self, learner: Model, teacher: Model):
-        """Showcase using the game of Taboo, which requires two players.
-        Therefore, the learner is supposed to be accompanied by a teacher.
-
-        However, in contract to clembench, the roles played by each model are to be decided programmatically.
-        This means that the results folder structure does not necessarily show which model played which role.
-
+    def __init__(self, num_epochs: int, learner: Model, teacher: Model = None):
+        """
         Note:
             Both models will always be loaded into memory, even if they are the same.
             This is intentional: While we want to adjust the learner's parameters,
@@ -33,15 +28,19 @@ class BranchingPlayPenTrainer(BasePlayPen):
             teacher: The teacher model instance that remains fixed and acts as part of the environment.
         """
         super().__init__(learner, teacher)
-        self.num_epochs = 2
+        self.num_epochs = num_epochs
+        player_models = [learner]
+        if teacher is not None:
+            player_models.append(teacher)
         # We configure necessary parameters for the branching run
         self.branching_factor = 2
         self.branching_criteria = lambda gm: self.is_learner(gm.observe()[0])  # current player is learner
         # We use the episode buffer that support branching during game play
         self.episode_buffer = BranchingEpisodeBuffer()
         # For playpen the model results folder does not necessarily indicate the model order as used in the games
-        results_folder = EpochResultsFolder(Path("playpen-records-branching"), [learner, teacher])
-        model_infos = Model.to_infos([learner, teacher])
+        run_dir = f"{learner}" if teacher is None else f"{learner}-{teacher}"
+        results_folder = EpochResultsFolder(Path("playpen-records-branching"), run_dir)
+        model_infos = Model.to_infos(player_models)
         # setup callbacks for the clem benchmark run
         self.callbacks = GameBenchmarkCallbackList([
             # a callback to collect episodes into the buffer during the benchmark run
@@ -51,21 +50,21 @@ class BranchingPlayPenTrainer(BasePlayPen):
             # a callback to save the instance.json using the epoch result folder structure
             InstanceFileSaver(results_folder),
             # a callback to save the experiment.json using the epoch result folder structure
-            ExperimentFileSaver(results_folder, model_infos),
+            ExperimentFileSaver(results_folder=results_folder, player_model_infos=model_infos),
             # a callback to save the interactions.json and requests.json for a specific branch of the conversation
-            BranchingInteractionsFileSaver(results_folder, model_infos)
+            BranchingInteractionsFileSaver(results_folder=results_folder, player_model_infos=model_infos)
         ])
 
-    def learn(self, game_registry: GameRegistry):
-        # We use the taboo game to showcase the basic playpen flow
-        game_spec = game_registry.get_game_specs_that_unify_with("taboo")[0]
+    def learn(self):
+        game_registry = self.get_game_registry()
+        game_specs = game_registry.get_game_specs_that_unify_with("all", verbose=False)
 
         # We only use the training instances so that we can properly evaluate on the validation set later
-        dataset = load_dataset("colab-potsdam/playpen-data", "instances", split="train")
-        game_instance_iterator = GameInstanceIterator.from_game_spec(game_spec, sub_selector=to_sub_selector(dataset))
+        dataset = ClemDatasetv2("instances", split="train").dataset.train_test_split(0.2, shuffle=True, seed=42)
+        game_instance_iterator = GameInstanceIterator.from_game_spec(game_specs, sub_selector=to_sub_selector(dataset))
 
         # We initialize the game benchmark which creates the game master for each game instance
-        with GameBenchmark.load_from_spec(game_spec) as game_benchmark:
+        with GameBenchmark.load_from_spec(game_specs) as game_benchmark:
             # We run as many epochs over all game instances as specified
             for epoch in range(self.num_epochs):
                 # We collect the episodes using the batchwise runner from clemcore
