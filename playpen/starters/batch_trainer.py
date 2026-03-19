@@ -6,7 +6,7 @@ from clemcore.clemgame import GameInstanceIterator, GameBenchmarkCallbackList, G
     InstanceFileSaver, ExperimentFileSaver, InteractionsFileSaver, EpochResultsFolder, EpochResultsFolderCallback
 from clemcore.clemgame.runners import batchwise
 from playpen import BasePlaypenTrainer, to_sub_selector
-from clemdatasets import ClemDatasetv2
+from playpen.clemdatasets import ClemDatasetv2
 
 from playpen.buffers import EpisodeBuffer
 from playpen.callbacks.buffers import EpisodeBufferCallback

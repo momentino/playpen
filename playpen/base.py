@@ -1,7 +1,8 @@
 import abc
 
 from clemcore.backends import Model, BatchGenerativeModel
-from clemcore.clemgame import Player
+from clemcore.clemgame import Player, GameRegistry
+
 
 
 class BasePlaypenTrainer(abc.ABC):
@@ -15,6 +16,9 @@ class BasePlaypenTrainer(abc.ABC):
 
     def is_teacher(self, player: Player):
         return player.model is self.teacher
+
+    def get_game_registry(self):
+        return GameRegistry.from_directories_and_cwd_files()
 
     @abc.abstractmethod
     def learn(self):

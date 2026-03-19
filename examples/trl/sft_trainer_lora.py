@@ -1,9 +1,8 @@
 import trl
 from peft import LoraConfig
-from datasets import load_dataset
+from playpen.clemdatasets import ClemDatasetv2
 
 from clemcore.backends.huggingface_local_api import HuggingfaceLocalModel
-from clemcore.clemgame import GameRegistry
 
 from playpen import BasePlaypenTrainer
 
@@ -20,7 +19,7 @@ class PeftSftTrainer(BasePlaypenTrainer):
         # The loss is calculated based on the differences to the last assistant message.
         # Here we load the canonical training split as available in the huggingface playpen-data repository.
         # By default, the dataset is stored in ~/.cache/huggingface/datasets/ on your machine. This might take a while.
-        dataset = load_dataset("colab-potsdam/playpen-data", "interactions", split="train")
+        dataset = ClemDatasetv2("interactions", split="train").dataset
 
         # Only use the episodes we are interested to train on: here all episodes with successful outcome
         dataset = dataset.filter(lambda episode: episode["meta"]["outcome"] == "success")

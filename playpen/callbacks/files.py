@@ -1,9 +1,7 @@
-from pathlib import Path
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
-from clemcore.clemgame import ResultsFolder, GameBenchmarkCallback, InteractionsFileSaver, GameInteractionsRecorder
+from clemcore.clemgame import InteractionsFileSaver, GameInteractionsRecorder
 from clemcore.clemgame.resources import store_json
-from clemcore.backends import Model
 
 if TYPE_CHECKING:  # to satisfy pycharm
     from clemcore.clemgame import GameMaster
