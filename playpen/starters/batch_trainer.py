@@ -53,7 +53,7 @@ class BatchwisePlaypenTrainer(BasePlaypenTrainer):
         game_registry = self.get_game_registry()
         game_specs = game_registry.get_game_specs_that_unify_with("all", verbose=False)
 
-        # We only use the training instances so that we can properly evaluate on the validation set later
+        # We take both training and validation set from the training split
         dataset = ClemDatasetv2("instances", split="train").dataset.train_test_split(0.2, shuffle=True, seed=42)
         game_instance_iterator = GameInstanceIterator.from_game_spec(game_specs, sub_selector=to_sub_selector(dataset))
 
