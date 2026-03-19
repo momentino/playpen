@@ -100,7 +100,7 @@ def evaluate_suite(suite: str, model_spec: ModelSpec, gen_args: Dict, results_di
                    dataset_name: str):
     suite_results_dir = results_dir / suite
     if dataset_name is not None:
-        from datasets import load_dataset
+        from clemdatasets import load_dataset
         dataset = load_dataset("colab-potsdam/playpen-data", dataset_name, split="validation")
         clem.run(game_selector, [model_spec],
                  gen_args=gen_args, results_dir_path=suite_results_dir, sub_selector=to_sub_selector(dataset))
