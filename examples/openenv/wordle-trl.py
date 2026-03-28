@@ -1,6 +1,6 @@
 from clemcore.clemgame import ClemGameEnv
 
-game_env = ClemGameEnv(base_url="http://0.0.0.0:9000")
+game_env = ClemGameEnv(base_url="http://0.0.0.0:9000").sync()
 
 from dataclasses import dataclass, field
 from playpen.agents.openenv import ClemGameEnvAgent
