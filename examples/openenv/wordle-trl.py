@@ -222,8 +222,6 @@ grpo_config = trl.GRPOConfig(
     disable_dropout=True,
     max_completion_length=2048,  # Should capture full episode; note that the model is asked to give an explanation
     output_dir=f"models/grpo/wordle/{MODEL_ID}",
-    report_to="tensorboard",
-    logging_dir=f"/cache/tensorboard-logdir/grpo/wordle/{MODEL_ID}/{TIMESTAMP}",
     log_completions=True
 )
 peft_config = LoraConfig(  # see https://huggingface.co/docs/trl/sft_trainer#training-adapters
